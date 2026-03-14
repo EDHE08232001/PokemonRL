@@ -33,9 +33,9 @@ if __name__ == '__main__':
 
     env_config = {
                 'headless': True, 'save_final_state': True, 'early_stop': False,
-                'action_freq': 24, 'init_state': '../has_pokedex_nballs.state', 'max_steps': ep_length, 
+                'action_freq': 24, 'init_state': '../saves/has_pokedex_nballs.state', 'max_steps': ep_length,
                 'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
-                'gb_path': '../PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0, 
+                'gb_path': '../ROM_INPUT/PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0, 
                 'use_screen_explore': True, 'reward_scale': 4, 'extra_buttons': False,
                 'explore_weight': 3 # 2.5
             }

@@ -1,3 +1,11 @@
+"""
+V2 training script.
+
+Trains PPO with MultiInputPolicy on 64 parallel Pokemon Red environments.
+Uses coordinate-based exploration. Supports checkpoint resumption,
+streaming to live map, and W&B logging.
+"""
+
 import sys
 from os.path import exists
 from pathlib import Path
@@ -10,22 +18,17 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from tensorboard_callback import TensorboardCallback
 
+
 def make_env(rank, env_conf, seed=0):
-    """
-    Utility function for multiprocessed env.
-    :param env_id: (str) the environment ID
-    :param num_env: (int) the number of environments you wish to have in subprocesses
-    :param seed: (int) the initial seed for RNG
-    :param rank: (int) index of the subprocess
-    """
+    """Create a closure that initializes a RedGymEnv wrapped with StreamWrapper."""
     def _init():
         env = StreamWrapper(
-            RedGymEnv(env_conf), 
-            stream_metadata = { # All of this is part is optional
-                "user": "v2-default", # choose your own username
-                "env_id": rank, # environment identifier
-                "color": "#447799", # choose your color :)
-                "extra": "", # any extra text you put here will be displayed
+            RedGymEnv(env_conf),
+            stream_metadata={
+                "user": "v2-default",
+                "env_id": rank,
+                "color": "#447799",
+                "extra": "",
             }
         )
         env.reset(seed=(seed + rank))
@@ -33,28 +36,29 @@ def make_env(rank, env_conf, seed=0):
     set_random_seed(seed)
     return _init
 
+
 if __name__ == "__main__":
 
     use_wandb_logging = False
-    ep_length = 2048 * 80
+    ep_length = 2048 * 80  # steps per episode per environment
     sess_id = "runs"
     sess_path = Path(sess_id)
 
     env_config = {
-                'headless': True, 'save_final_state': False, 'early_stop': False,
-                'action_freq': 24, 'init_state': '../saves/init.state', 'max_steps': ep_length, 
-                'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
-                'gb_path': '../ROM_INPUT/PokemonRed.gb', 'debug': False, 'reward_scale': 0.5, 'explore_weight': 0.25
-            }
-    
+        'headless': True, 'save_final_state': False, 'early_stop': False,
+        'action_freq': 24, 'init_state': '../saves/init.state', 'max_steps': ep_length,
+        'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
+        'gb_path': '../ROM_INPUT/PokemonRed.gb', 'debug': False, 'reward_scale': 0.5, 'explore_weight': 0.25
+    }
+
     print(env_config)
-    
-    num_cpu = 64 # Also sets the number of episodes per training iteration
+
+    num_cpu = 64  # parallel environments
     env = SubprocVecEnv([make_env(i, env_config) for i in range(num_cpu)])
-    
-    checkpoint_callback = CheckpointCallback(save_freq=ep_length//2, save_path=sess_path,
-                                     name_prefix="poke")
-    
+
+    checkpoint_callback = CheckpointCallback(save_freq=ep_length // 2, save_path=sess_path,
+                                             name_prefix="poke")
+
     callbacks = [checkpoint_callback, TensorboardCallback(sess_path)]
 
     if use_wandb_logging:
@@ -66,22 +70,20 @@ if __name__ == "__main__":
             id=sess_id,
             name="v2-a",
             config=env_config,
-            sync_tensorboard=True,  
-            monitor_gym=True,  
+            sync_tensorboard=True,
+            monitor_gym=True,
             save_code=True,
         )
         callbacks.append(WandbCallback())
 
-    #env_checker.check_env(env)
-
-    # put a checkpoint here you want to start from    
+    # Read checkpoint path from stdin (for pipeline use), or start fresh
     if sys.stdin.isatty():
         file_name = ""
     else:
-        file_name = sys.stdin.read().strip() #"runs/poke_26214400_steps"
+        file_name = sys.stdin.read().strip()
 
-    train_steps_batch = ep_length // 64
-    
+    train_steps_batch = ep_length // 64  # n_steps per PPO update
+
     if exists(file_name + ".zip"):
         print("\nloading checkpoint")
         model = PPO.load(file_name, env=env)
@@ -91,11 +93,12 @@ if __name__ == "__main__":
         model.rollout_buffer.n_envs = num_cpu
         model.rollout_buffer.reset()
     else:
+        # PPO with MultiInputPolicy: 1 epoch per update, batch size 512
         model = PPO("MultiInputPolicy", env, verbose=1, n_steps=train_steps_batch, batch_size=512, n_epochs=1, gamma=0.997, ent_coef=0.01, tensorboard_log=sess_path)
-    
+
     print(model.policy)
 
-    model.learn(total_timesteps=(ep_length)*num_cpu*10000, callback=CallbackList(callbacks), tb_log_name="poke_ppo")
+    model.learn(total_timesteps=(ep_length) * num_cpu * 10000, callback=CallbackList(callbacks), tb_log_name="poke_ppo")
 
     if use_wandb_logging:
         run.finish()

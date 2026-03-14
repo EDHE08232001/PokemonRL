@@ -1,13 +1,27 @@
+"""
+WebSocket streaming wrapper for broadcasting agent coordinates to a live map.
+
+Wraps a Gym environment and periodically sends player position data
+to a WebSocket server for real-time visualization at:
+https://pwhiddy.github.io/pokerl-map-viz/
+
+Uses PyBoy v2 memory API (self.emulator.memory[addr]).
+"""
+
 import asyncio
 import websockets
 import json
 
 import gymnasium as gym
 
+# Game Boy memory addresses for player position
 X_POS_ADDRESS, Y_POS_ADDRESS = 0xD362, 0xD361
 MAP_N_ADDRESS = 0xD35E
 
+
 class StreamWrapper(gym.Wrapper):
+    """Gym wrapper that broadcasts (x, y, map) coords via WebSocket."""
+
     def __init__(self, env, stream_metadata={}):
         super().__init__(env)
         self.ws_address = "wss://transdimensional.xyz/broadcast"
@@ -18,10 +32,11 @@ class StreamWrapper(gym.Wrapper):
         self.loop.run_until_complete(
             self.establish_wc_connection()
         )
-        self.upload_interval = 300
+        self.upload_interval = 300  # send coords every 300 steps
         self.steam_step_counter = 0
         self.env = env
         self.coord_list = []
+        # Find the emulator instance on the wrapped env
         if hasattr(env, "pyboy"):
             self.emulator = env.pyboy
         elif hasattr(env, "game"):
@@ -30,7 +45,7 @@ class StreamWrapper(gym.Wrapper):
             raise Exception("Could not find emulator!")
 
     def step(self, action):
-
+        """Step the env and periodically broadcast position data."""
         x_pos = self.emulator.memory[X_POS_ADDRESS]
         y_pos = self.emulator.memory[Y_POS_ADDRESS]
         map_n = self.emulator.memory[MAP_N_ADDRESS]
@@ -42,8 +57,8 @@ class StreamWrapper(gym.Wrapper):
                 self.broadcast_ws_message(
                     json.dumps(
                         {
-                          "metadata": self.stream_metadata,
-                          "coords": self.coord_list
+                            "metadata": self.stream_metadata,
+                            "coords": self.coord_list
                         }
                     )
                 )
@@ -56,6 +71,7 @@ class StreamWrapper(gym.Wrapper):
         return self.env.step(action)
 
     async def broadcast_ws_message(self, message):
+        """Send a message over WebSocket, reconnecting if needed."""
         if self.websocket is None:
             await self.establish_wc_connection()
         if self.websocket is not None:
@@ -65,6 +81,7 @@ class StreamWrapper(gym.Wrapper):
                 self.websocket = None
 
     async def establish_wc_connection(self):
+        """Establish WebSocket connection (silently fails if server unavailable)."""
         try:
             self.websocket = await websockets.connect(self.ws_address)
         except:

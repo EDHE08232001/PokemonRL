@@ -1,17 +1,63 @@
-__pycache__
-.DS_Store
-rollouts
-*.ram
-.ipynb_checkpoints
-raw_documentation
-*.pem
-_autoplay.mp4
-session_*
-.env
-venv*
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# Virtual environments
+venv*/
+.venv/
+env/
 .python-version
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
 ._*
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Training artifacts
+session_*
+rollouts/
+final_states/
+screenshots/
+
+# Model checkpoints (large files, user-generated)
+# Keep pre-trained ones in v2/runs/ via nested .gitignore
+*.zip
+!v2/runs/*.zip
+
+# Emulator / game artifacts
+*.ram
+*.sav
+*.sgm
+_autoplay.mp4
 
 # ROM files (user must supply their own)
 ROM_INPUT/*.gb
 ROM_INPUT/*.gbc
+
+# Logs and data
+*.log
+*.csv.gz
+wandb/
+runs/histogram/
+
+# Secrets / config
+.env
+*.pem
+
+# Misc
+raw_documentation/

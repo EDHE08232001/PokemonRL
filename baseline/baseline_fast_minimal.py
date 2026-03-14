@@ -22,7 +22,7 @@ def make_env(rank, seed=0):
     """
     def _init():
         env = StreamWrapper(
-            PokeRedEnv('../PokemonRed.gb', '../has_pokedex_nballs.state'), 
+            PokeRedEnv('../ROM_INPUT/PokemonRed.gb', '../saves/has_pokedex_nballs.state'), 
             stream_metadata = { # All of this is part is optional
                 "user": "v3-test", # choose your own username
                 "env_id": rank, # environment identifier

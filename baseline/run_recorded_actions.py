@@ -13,9 +13,9 @@ def run_recorded_actions_on_emulator_and_save_video(sess_id, instance_id, run_in
 
     env_config = {
             'headless': True, 'save_final_state': True, 'early_stop': False,
-            'action_freq': 24, 'init_state': '../has_pokedex_nballs.state', 'max_steps': max_steps, #ep_length, 
+            'action_freq': 24, 'init_state': '../saves/has_pokedex_nballs.state', 'max_steps': max_steps, #ep_length,
             'print_rewards': False, 'save_video': True, 'fast_video': False, 'session_path': sess_path,
-            'gb_path': '../PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0, 'instance_id': f'{instance_id}_recorded'
+            'gb_path': '../ROM_INPUT/PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0, 'instance_id': f'{instance_id}_recorded'
     }
     env = RedGymEnv(env_config)
     env.reset_count = run_index

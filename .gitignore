@@ -1,7 +1,6 @@
 __pycache__
 .DS_Store
 rollouts
-*.gb
 *.ram
 .ipynb_checkpoints
 raw_documentation
@@ -9,6 +8,9 @@ raw_documentation
 _autoplay.mp4
 session_*
 .env
-PokemonRed.gb.state
 venv*
 .python-version
+
+# ROM files (user must supply their own)
+ROM_INPUT/*.gb
+ROM_INPUT/*.gbc

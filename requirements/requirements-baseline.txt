@@ -1,3 +1,10 @@
+# PokemonRL — Baseline (V1) pinned dependencies
+#
+# Uses PyBoy v1.x API and hnswlib for KNN frame exploration.
+# Tested on Linux x86_64 with Python 3.10.
+#
+# Install: pip install -r requirements/requirements-baseline.txt
+
 appnope==0.1.3
 asttokens==2.2.1
 attrs==23.1.0

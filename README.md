@@ -172,8 +172,8 @@ V2 replaces frame-based exploration with **coordinate counting** and uses a **st
 cp /path/to/PokemonRed.gb ROM_INPUT/PokemonRed.gb
 
 # 2. Install dependencies (pick one)
-pip install -r v2/requirements.txt          # V2 (recommended)
-pip install -r baseline/requirements.txt    # Baseline
+pip install -r requirements/requirements-v2.txt          # V2 (recommended)
+pip install -r requirements/requirements-baseline.txt    # Baseline
 
 # 3. Run
 python main.py
@@ -204,7 +204,7 @@ python main.py
 
 ```bash
 # Install V2 dependencies
-pip install -r v2/requirements.txt
+pip install -r requirements/requirements-v2.txt
 
 # Place ROM
 cp /path/to/PokemonRed.gb ROM_INPUT/PokemonRed.gb
@@ -220,8 +220,8 @@ python main.py
 #### Train V2
 
 ```bash
+pip install -r requirements/requirements-v2.txt
 cd v2
-pip install -r requirements.txt
 python baseline_fast_v2.py
 ```
 
@@ -239,8 +239,8 @@ echo "runs/poke_26214400_steps" | python baseline_fast_v2.py
 #### Train Baseline
 
 ```bash
+pip install -r requirements/requirements-baseline.txt
 cd baseline
-pip install -r requirements.txt
 python run_baseline_parallel_fast.py
 ```
 
@@ -329,7 +329,6 @@ PokemonRL/
 │   ├── global_map.py        # Map coordinate conversion
 │   ├── tensorboard_callback.py  # TensorBoard logging callback
 │   ├── stream_agent_wrapper.py  # WebSocket live map streaming
-│   ├── requirements.txt
 │   └── ...
 │
 ├── v2/                      # V2 approach (recommended)
@@ -341,9 +340,16 @@ PokemonRL/
 │   ├── stream_agent_wrapper.py  # WebSocket live map streaming
 │   ├── events.json          # Event flag names (parsed from pokered)
 │   ├── map_data.json        # Map region coordinate data
-│   ├── requirements.txt
 │   └── runs/                # Pre-trained checkpoint included
 │       └── poke_26214400.zip
+│
+├── requirements/            # All pip dependency files (centralized)
+│   ├── requirements-base.txt              # Shared core deps (unpinned)
+│   ├── requirements-baseline.txt          # Baseline pinned deps
+│   ├── requirements-baseline-unfrozen.txt # Baseline unpinned deps
+│   ├── requirements-v2.txt               # V2 pinned deps (Linux/CUDA)
+│   ├── requirements-v2-macos.txt         # V2 pinned deps (macOS)
+│   └── requirements-ray.txt             # Ray RLlib experiment deps
 │
 ├── visualization/           # Map and progress visualization scripts
 └── assets/                  # Images and media for documentation
@@ -422,8 +428,13 @@ View the live map: https://pwhiddy.github.io/pokerl-map-viz/
 
 - Python 3.10+
 - ffmpeg (available on PATH)
-- See `baseline/requirements.txt` or `v2/requirements.txt` for Python packages
-- macOS users: use `v2/macos_requirements.txt`
+- All dependency files are in `requirements/`:
+  - `requirements-v2.txt` — V2 pinned (Linux/CUDA, recommended)
+  - `requirements-v2-macos.txt` — V2 pinned (macOS, no NVIDIA packages)
+  - `requirements-baseline.txt` — Baseline pinned
+  - `requirements-baseline-unfrozen.txt` — Baseline unpinned (flexible)
+  - `requirements-base.txt` — Shared core deps (unpinned)
+  - `requirements-ray.txt` — Ray RLlib experiment
 
 ### Key Dependencies
 

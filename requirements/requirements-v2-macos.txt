@@ -1,3 +1,10 @@
+# PokemonRL — V2 pinned dependencies (macOS)
+#
+# Same as requirements-v2.txt but without NVIDIA/CUDA/triton packages.
+# Tested on macOS with Python 3.10.
+#
+# Install: pip install -r requirements/requirements-v2-macos.txt
+
 absl-py==2.1.0
 asttokens==2.4.1
 cloudpickle==3.1.0

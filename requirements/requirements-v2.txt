@@ -1,3 +1,10 @@
+# PokemonRL — V2 pinned dependencies (Linux, CUDA)
+#
+# Uses PyBoy v2.x API with coordinate-based exploration.
+# Tested on Linux x86_64 with Python 3.10, CUDA 12.4.
+#
+# Install: pip install -r requirements/requirements-v2.txt
+
 absl-py==2.1.0
 asttokens==2.4.1
 cloudpickle==3.1.0

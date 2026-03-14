@@ -10,6 +10,7 @@ session_*
 .env
 venv*
 .python-version
+._*
 
 # ROM files (user must supply their own)
 ROM_INPUT/*.gb

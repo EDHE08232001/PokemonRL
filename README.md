@@ -2,7 +2,7 @@
 
 Reinforcement learning agents that learn to play Pokemon Red using [PyBoy](https://github.com/Baekalfen/PyBoy) emulator and [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3) PPO.
 
-Two training approaches are included: a **Baseline** (original, frame-based KNN exploration) and **V2** (improved, coordinate-based exploration). V2 is recommended.
+Three training approaches are included: a **Baseline** (original, frame-based KNN exploration), **V2** (improved, coordinate-based exploration), and **V3** (experimental — recurrent memory, semantic text rewards, and topological graph navigation). V2 is recommended for stable training; V3 is the active research frontier.
 
 ---
 
@@ -12,6 +12,7 @@ Two training approaches are included: a **Baseline** (original, frame-based KNN 
 - [Version Descriptions](#version-descriptions)
   - [Baseline (V1)](#baseline-v1---knn-frame-exploration)
   - [V2 (Recommended)](#v2-recommended---coordinate-based-exploration)
+  - [V3 (Experimental)](#v3-experimental---recurrent-memory--semantic-text--topological-graph)
 - [Comparison Table](#comparison-between-versions)
 - [Quick Start](#quick-start)
 - [Detailed Training Instructions](#detailed-training-instructions)
@@ -141,27 +142,48 @@ V2 replaces frame-based exploration with **coordinate counting** and uses a **st
 
 ---
 
+### V3 (Experimental) — Recurrent Memory, Semantic Text, & Topological Graph
+
+V3 extends V2 with three new systems aimed at pushing the agent beyond pure spatial exploration toward narrative understanding and structural map reasoning. **Full details: [v3/README.md](v3/README.md)**
+
+**Key additions**:
+1. **Recurrent Memory (LSTM)**: Replaces PPO with RecurrentPPO (`sb3-contrib`). The `MultiInputLstmPolicy` maintains hidden state across the episode, giving the agent working memory for multi-step tasks (building navigation, dialogue sequences). The `recent_actions` observation is removed since the LSTM handles temporal action history natively.
+2. **Semantic Text Rewards**: Hooks into Game Boy WRAM (`0xCF4B`) to read and decode the active text buffer using the Gen 1 character map. New unique dialogue strings grant a one-time +0.5 intrinsic reward, incentivizing NPC interaction and sign reading.
+3. **Topological Graph Navigation**: Builds a directed graph (`networkx.DiGraph`) of `(map_id, row, col)` nodes during exploration. Detects "warp edges" (door/teleport transitions between map IDs) and grants a +2.0 bonus for discovering new maps. The shortest-path distance from Pallet Town is fed into the observation as `graph_distance`.
+
+**New dependencies**: `sb3-contrib`, `networkx`
+
+```bash
+pip install -r requirements/requirements-v3.txt
+cd v3
+python baseline_fast_v3.py
+```
+
+---
+
 ## Comparison Between Versions
 
-| Feature | Baseline (V1) | V2 (Recommended) |
-|---------|---------------|-------------------|
-| **RL Algorithm** | PPO (CnnPolicy) | PPO (MultiInputPolicy) |
-| **Exploration method** | KNN over downsampled frames (HNSW, L2 distance) | Coordinate counting (unique tiles visited) |
-| **Observation type** | Flat RGB image (stacked frames + memory bars) | Dict: screens, HP, level, badges, events, map, actions |
-| **Screen format** | 36×40 RGB, 3 stacked | 72×80 grayscale, 3 stacked |
-| **Policy architecture** | CNN → shared features → actor/critic | CNN (screens, map) + MLP (scalars) → combined → actor/critic |
-| **Parallel envs** | 16 | 64 |
-| **PPO epochs/update** | 3 | 1 |
-| **Batch size** | 128 | 512 |
-| **Discount (gamma)** | 0.998 | 0.997 |
-| **Entropy coef** | 0 (default) | 0.01 |
-| **Memory usage** | Higher (KNN index ~20K frames) | Lower (coordinate dict only) |
-| **Training speed** | Slower | Faster |
-| **Initial game state** | Has Pokedex + Pokeballs | Start of game |
-| **Stuck penalty** | No | Yes (-0.05 at 600+ visits) |
-| **Level encoding** | Raw level sum in reward | Fourier-encoded in observation |
-| **PyBoy version** | v1.x (`botsupport_manager`, `get_memory_value`) | v2.x (`screen.ndarray`, `memory[]`) |
-| **Result** | Reaches ~Cerulean City | Reaches Cerulean City, trains faster |
+| Feature | Baseline (V1) | V2 (Recommended) | V3 (Experimental) |
+|---------|---------------|-------------------|--------------------|
+| **RL Algorithm** | PPO (CnnPolicy) | PPO (MultiInputPolicy) | RecurrentPPO (MultiInputLstmPolicy) |
+| **Exploration method** | KNN over downsampled frames (HNSW, L2 distance) | Coordinate counting (unique tiles visited) | Coordinate counting + topological graph + text |
+| **Observation type** | Flat RGB image (stacked frames + memory bars) | Dict: screens, HP, level, badges, events, map, actions | Dict: screens, HP, level, badges, events, map, text_hash, graph_distance |
+| **Screen format** | 36×40 RGB, 3 stacked | 72×80 grayscale, 3 stacked | 72×80 grayscale, 3 stacked |
+| **Policy architecture** | CNN → shared features → actor/critic | CNN (screens, map) + MLP (scalars) → combined → actor/critic | CNN + MLP → LSTM (128h, 1L) → actor/critic |
+| **Parallel envs** | 16 | 64 | 64 |
+| **PPO epochs/update** | 3 | 1 | 1 |
+| **Batch size** | 128 | 512 | 512 |
+| **Discount (gamma)** | 0.998 | 0.997 | 0.997 |
+| **Entropy coef** | 0 (default) | 0.01 | 0.01 |
+| **Memory usage** | Higher (KNN index ~20K frames) | Lower (coordinate dict only) | Moderate (coords + graph + LSTM states) |
+| **Training speed** | Slower | Faster | Moderate (LSTM overhead) |
+| **Initial game state** | Has Pokedex + Pokeballs | Start of game | Start of game |
+| **Stuck penalty** | No | Yes (-0.05 at 600+ visits) | Yes (-0.05 at 600+ visits) |
+| **Level encoding** | Raw level sum in reward | Fourier-encoded in observation | Fourier-encoded in observation |
+| **Text understanding** | None | None | Gen 1 WRAM text decoding + reward |
+| **Map structure** | None | Flat exploration map | Exploration map + directed graph |
+| **PyBoy version** | v1.x (`botsupport_manager`, `get_memory_value`) | v2.x (`screen.ndarray`, `memory[]`) | v2.x (`screen.ndarray`, `memory[]`) |
+| **Result** | Reaches ~Cerulean City | Reaches Cerulean City, trains faster | Under development |
 
 ---
 
@@ -343,12 +365,23 @@ PokemonRL/
 │   └── runs/                # Pre-trained checkpoint included
 │       └── poke_26214400.zip
 │
+├── v3/                      # V3 approach (experimental)
+│   ├── red_gym_env_v3.py    # Gym environment (LSTM + text + graph)
+│   ├── baseline_fast_v3.py  # Training script (RecurrentPPO, 64 CPUs)
+│   ├── tensorboard_callback_v3.py  # TensorBoard logging (+ V3 metrics)
+│   ├── global_map.py        # Map coordinate conversion
+│   ├── stream_agent_wrapper.py  # WebSocket live map streaming
+│   ├── events.json          # Event flag names
+│   ├── map_data.json        # Map region coordinate data
+│   └── README.md            # V3 architecture documentation
+│
 ├── requirements/            # All pip dependency files (centralized)
 │   ├── requirements-base.txt              # Shared core deps (unpinned)
 │   ├── requirements-baseline.txt          # Baseline pinned deps
 │   ├── requirements-baseline-unfrozen.txt # Baseline unpinned deps
 │   ├── requirements-v2.txt               # V2 pinned deps (Linux/CUDA)
 │   ├── requirements-v2-macos.txt         # V2 pinned deps (macOS)
+│   ├── requirements-v3.txt              # V3 deps (adds sb3-contrib, networkx)
 │   └── requirements-ray.txt             # Ray RLlib experiment deps
 │
 ├── visualization/           # Map and progress visualization scripts
@@ -431,6 +464,7 @@ View the live map: https://pwhiddy.github.io/pokerl-map-viz/
 - All dependency files are in `requirements/`:
   - `requirements-v2.txt` — V2 pinned (Linux/CUDA, recommended)
   - `requirements-v2-macos.txt` — V2 pinned (macOS, no NVIDIA packages)
+  - `requirements-v3.txt` — V3 (adds sb3-contrib, networkx)
   - `requirements-baseline.txt` — Baseline pinned
   - `requirements-baseline-unfrozen.txt` — Baseline unpinned (flexible)
   - `requirements-base.txt` — Shared core deps (unpinned)
@@ -438,17 +472,19 @@ View the live map: https://pwhiddy.github.io/pokerl-map-viz/
 
 ### Key Dependencies
 
-| Package | Baseline | V2 | Purpose |
-|---------|----------|-----|---------|
-| `pyboy` | 1.6.9 | 2.4.0 | Game Boy emulator |
-| `stable-baselines3` | 2.0.0 | 2.3.2 | PPO implementation |
-| `torch` | 2.0.1 | 2.5.0 | Neural network backend |
-| `gymnasium` | 0.28.1 | 0.29.1 | Environment interface |
-| `hnswlib` | 0.7.0 | — | KNN index (Baseline only) |
-| `scikit-image` | 0.21.0 | 0.24.0 | Frame downsampling |
-| `einops` | 0.6.1 | 0.8.0 | Tensor reshaping |
-| `mediapy` | custom fork | 1.2.2 | Video recording |
-| `websockets` | — | 13.1 | Live map streaming |
+| Package | Baseline | V2 | V3 | Purpose |
+|---------|----------|-----|-----|---------|
+| `pyboy` | 1.6.9 | 2.4.0 | ≥2.4.0 | Game Boy emulator |
+| `stable-baselines3` | 2.0.0 | 2.3.2 | ≥2.3.2 | PPO implementation |
+| `sb3-contrib` | — | — | ≥2.3.0 | RecurrentPPO (LSTM policy) |
+| `networkx` | — | — | ≥3.0 | Topological graph navigation |
+| `torch` | 2.0.1 | 2.5.0 | ≥2.5.0 | Neural network backend |
+| `gymnasium` | 0.28.1 | 0.29.1 | ≥0.29.1 | Environment interface |
+| `hnswlib` | 0.7.0 | — | — | KNN index (Baseline only) |
+| `scikit-image` | 0.21.0 | 0.24.0 | ≥0.24.0 | Frame downsampling |
+| `einops` | 0.6.1 | 0.8.0 | ≥0.8.0 | Tensor reshaping |
+| `mediapy` | custom fork | 1.2.2 | ≥1.2.2 | Video recording |
+| `websockets` | — | 13.1 | ≥13.1 | Live map streaming |
 
 ---
 

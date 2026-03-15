@@ -1,17 +1,26 @@
+import sys
 import uuid
 from pathlib import Path
 import ray
 from ray.rllib.algorithms import ppo
+
+# Resolve absolute paths relative to this script's location
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent.parent
+
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
 from red_gym_env_ray import RedGymEnv
 
 ep_length = 2048 # 2048 * 8
-sess_path = Path(f'session_{str(uuid.uuid4())[:8]}')
+sess_path = _SCRIPT_DIR / f'session_{str(uuid.uuid4())[:8]}'
 
 env_config = {
             'headless': True, 'save_final_state': True, 'early_stop': False,
-            'action_freq': 24, 'init_state': '../../../saves/has_pokedex_nballs.state', 'max_steps': ep_length,
+            'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'has_pokedex_nballs.state'), 'max_steps': ep_length,
             'print_rewards': False, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
-            'gb_path': '../../../ROM_INPUT/PokemonRed.gb', 'debug': False, 'sim_frame_dist': 500_000.0
+            'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'sim_frame_dist': 500_000.0
         }
 
 ray.init(num_gpus=1)

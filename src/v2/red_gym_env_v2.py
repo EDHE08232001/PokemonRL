@@ -101,7 +101,7 @@ class RedGymEnv(Env):
         ]
 
         # Load event flag names for logging
-        with open("events.json") as f:
+        with open(Path(__file__).resolve().parent / "events.json") as f:
             event_names = json.load(f)
         self.event_names = event_names
 

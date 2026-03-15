@@ -2,6 +2,14 @@ from os.path import exists
 from pathlib import Path
 import sys
 import uuid
+
+# Resolve absolute paths relative to this script's location
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
 from red_gym_env import RedGymEnv
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common import env_checker
@@ -27,12 +35,12 @@ def make_env(rank, env_conf, seed=0):
 def run_save(save):
     save = Path(save)
     ep_length = 2048 * 8
-    sess_path = f'grid_renders/session_{save.stem}'
+    sess_path = _SCRIPT_DIR / 'grid_renders' / f'session_{save.stem}'
     env_config = {
                 'headless': True, 'save_final_state': True, 'early_stop': False,
-                'action_freq': 24, 'init_state': '../../saves/has_pokedex_nballs.state', 'max_steps': ep_length,
+                'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'has_pokedex_nballs.state'), 'max_steps': ep_length,
                 'print_rewards': True, 'save_video': True, 'fast_video': False, 'session_path': sess_path,
-                'gb_path': '../../ROM_INPUT/PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0
+                'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'sim_frame_dist': 2_000_000.0
             }
     num_cpu = 40  # Also sets the number of episodes per training iteration
     env = SubprocVecEnv([make_env(i, env_config) for i in range(num_cpu)])

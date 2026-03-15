@@ -5,15 +5,17 @@ PokemonRL - Train an RL agent to play Pokemon Red.
 Main entry point. Select which approach to train or run:
   - Baseline: KNN frame-based exploration with CnnPolicy (PPO)
   - V2: Coordinate-based exploration with MultiInputPolicy (PPO, recommended)
+  - V3: Recurrent memory + semantic text + topological graph (RecurrentPPO, experimental)
 """
 
 import subprocess
 import sys
 import os
 
-# Paths to the two training approach directories
+# Paths to the training approach directories
 BASELINE_DIR = os.path.join(os.path.dirname(__file__), "baseline")
 V2_DIR = os.path.join(os.path.dirname(__file__), "v2")
+V3_DIR = os.path.join(os.path.dirname(__file__), "v3")
 
 
 def print_banner():
@@ -34,6 +36,8 @@ def print_menu():
     print()
     print("  [3] Train V2        (coordinate exploration, MultiInputPolicy)")
     print("  [4] Run V2          (play with trained V2 model)")
+    print()
+    print("  [5] Train V3        (LSTM + text + graph, RecurrentPPO)")
     print()
     print("  [q] Quit")
     print()
@@ -87,6 +91,10 @@ def main():
             if not check_rom():
                 continue
             run_script(V2_DIR, "run_pretrained_interactive.py")
+        elif choice == "5":
+            if not check_rom():
+                continue
+            run_script(V3_DIR, "baseline_fast_v3.py")
         else:
             print("Invalid choice. Try again.\n")
 

@@ -1,0 +1,35 @@
+# PokemonRL V3 — Dependencies
+#
+# Extends V2 requirements with:
+#   - sb3-contrib (RecurrentPPO / LSTM policy)
+#   - networkx (topological graph navigation)
+#
+# Install: pip install -r requirements/requirements-v3.txt
+
+# Core RL
+stable-baselines3>=2.3.2
+sb3-contrib>=2.3.0
+gymnasium>=0.29.1
+torch>=2.5.0
+
+# Topological graph
+networkx>=3.0
+
+# Emulator
+pyboy>=2.4.0
+PySDL2
+pysdl2-dll
+
+# Numeric / image
+numpy>=2.1.0
+einops>=0.8.0
+scikit-image>=0.24.0
+scipy>=1.14.0
+matplotlib>=3.9.0
+pandas>=2.2.0
+pillow>=11.0.0
+
+# Video / streaming / logging
+mediapy>=1.2.2
+tensorboard>=2.18.0
+websockets>=13.1

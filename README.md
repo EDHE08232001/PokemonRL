@@ -361,20 +361,22 @@ python src/baseline/run_pretrained_interactive.py
 PokemonRL/
 ├── main.py                      # Entry point — interactive menu to train or run models
 ├── pyproject.toml               # Python package config with optional dependency extras
+├── VisualizeProgress.ipynb      # Jupyter notebook for training visualization
 ├── ROM_INPUT/                   # Place PokemonRed.gb here (user-supplied, gitignored)
+│   └── PokemonRed.gb           # ← YOUR ROM FILE GOES HERE
 ├── saves/                       # Game Boy save states for initializing training episodes
-│   ├── init.state               # Early game state (used by V2, V3)
+│   ├── init.state               # Start of game (used by V2, V3)
 │   ├── has_pokedex.state        # Has Pokedex obtained
-│   ├── has_pokedex_nballs.state # Has Pokedex + Pokeballs (used by Baseline)
+│   ├── has_pokedex_nballs.state # Has Pokedex + Pokeballs (used by Baseline V1)
 │   └── fast_text_start.state    # Fast text speed enabled
 │
 ├── src/                         # All training approach source code
-│   ├── baseline/                # Baseline approach (V1) — KNN frame exploration
+│   ├── baseline/                # V1 — KNN frame exploration (see src/baseline/README.md)
 │   │   ├── red_gym_env.py       # Gym environment (KNN frame exploration)
 │   │   ├── red_gym_env_minimal.py  # Minimal env variant (experimental)
-│   │   ├── run_baseline_parallel_fast.py  # Training script (16 CPUs)
-│   │   ├── run_baseline_parallel.py       # Alternate training script (44 CPUs)
-│   │   ├── run_pretrained_interactive.py  # Play with trained model
+│   │   ├── run_baseline_parallel_fast.py  # Training script (16 parallel envs)
+│   │   ├── run_baseline_parallel.py       # Alt training script (44 parallel envs)
+│   │   ├── run_pretrained_interactive.py  # Play with trained model (manual path)
 │   │   ├── baseline_fast_minimal.py       # Minimal training script
 │   │   ├── run_recorded_actions.py        # Replay recorded actions
 │   │   ├── memory_addresses.py  # Game Boy memory address constants
@@ -383,32 +385,45 @@ PokemonRL/
 │   │   ├── stream_agent_wrapper.py  # WebSocket live map streaming
 │   │   ├── events.json          # Event flag names (parsed from pokered)
 │   │   ├── map_data.json        # Map region coordinate data
+│   │   ├── README.md            # V1 documentation
+│   │   ├── session_<UUID>/      # ← CREATED AT RUNTIME (training outputs)
+│   │   │   ├── poke_<steps>_steps.zip   # Checkpoints
+│   │   │   ├── all_runs_<id>.json       # Reward logs
+│   │   │   ├── agent_stats_<id>.csv.gz  # Per-step stats
+│   │   │   └── final_states/            # Episode screenshots
 │   │   └── ray_exp/             # Experimental Ray RLlib training
 │   │       ├── red_gym_env_ray.py
 │   │       └── train_ray.py
 │   │
-│   ├── v2/                      # V2 approach (recommended) — coordinate exploration
+│   ├── v2/                      # V2 (recommended) — coordinate exploration (see src/v2/README.md)
 │   │   ├── red_gym_env_v2.py    # Gym environment (coordinate exploration)
-│   │   ├── baseline_fast_v2.py  # Training script (64 CPUs)
-│   │   ├── run_pretrained_interactive.py  # Play with trained model
+│   │   ├── baseline_fast_v2.py  # Training script (64 parallel envs)
+│   │   ├── run_pretrained_interactive.py  # Play with trained model (auto-detects checkpoint)
 │   │   ├── global_map.py        # Map coordinate conversion
 │   │   ├── tensorboard_callback.py  # TensorBoard logging callback
 │   │   ├── stream_agent_wrapper.py  # WebSocket live map streaming
 │   │   ├── events.json          # Event flag names
 │   │   ├── map_data.json        # Map region coordinate data
-│   │   └── go_forever.sh        # Continuous training wrapper script
+│   │   ├── go_forever.sh        # Continuous training wrapper script
+│   │   ├── README.md            # V2 documentation
+│   │   └── runs/                # ← CREATED AT RUNTIME (checkpoints, TensorBoard, screenshots)
+│   │       ├── poke_<steps>_steps.zip   # Checkpoints (place pre-trained model here)
+│   │       └── final_states/            # Episode screenshots
 │   │
-│   └── v3/                      # V3 approach (experimental) — LSTM + text + graph
+│   └── v3/                      # V3 (experimental) — LSTM + text + graph (see src/v3/README.md)
 │       ├── red_gym_env_v3.py    # Gym environment (LSTM + text + graph)
-│       ├── baseline_fast_v3.py  # Training script (RecurrentPPO, 64 CPUs)
-│       ├── run_pretrained_interactive.py  # Play with trained V3 model
+│       ├── baseline_fast_v3.py  # Training script (RecurrentPPO, 64 parallel envs)
+│       ├── run_pretrained_interactive.py  # Play with trained model (auto-detects checkpoint)
 │       ├── tensorboard_callback_v3.py  # TensorBoard logging (+ V3 metrics)
 │       ├── global_map.py        # Map coordinate conversion
 │       ├── stream_agent_wrapper.py  # WebSocket live map streaming
 │       ├── events.json          # Event flag names
 │       ├── map_data.json        # Map region coordinate data
 │       ├── go_forever.sh        # Continuous training wrapper script
-│       └── README.md            # V3 architecture documentation
+│       ├── README.md            # V3 architecture documentation
+│       └── runs/                # ← CREATED AT RUNTIME (checkpoints, TensorBoard, screenshots)
+│           ├── poke_<steps>_steps.zip   # Checkpoints w/ LSTM state (place pre-trained model here)
+│           └── final_states/            # Episode screenshots
 │
 ├── visualization/               # Map and progress visualization scripts & notebooks
 │   ├── BetterMapVis_script_version.py
@@ -423,6 +438,22 @@ PokemonRL/
 ├── windows-setup-guide.md       # Windows-specific installation guide
 └── LICENSE
 ```
+
+### Where to Place Pre-trained Models
+
+| Version | Place checkpoint here | Auto-detected? |
+|---------|----------------------|----------------|
+| **Baseline (V1)** | `src/baseline/session_<ID>/poke_<steps>_steps.zip` | No — edit `file_name` in `run_pretrained_interactive.py` |
+| **V2** | `src/v2/runs/poke_<steps>_steps.zip` | Yes — loads most recent `.zip` automatically |
+| **V3** | `src/v3/runs/poke_<steps>_steps.zip` | Yes — loads most recent `.zip` automatically |
+
+### Where Training Outputs Go
+
+| Version | Checkpoints | TensorBoard Logs | Screenshots | Extra Logs |
+|---------|-------------|------------------|-------------|------------|
+| **Baseline (V1)** | `src/baseline/session_<UUID>/` | Same directory | `final_states/` | `all_runs_*.json`, `agent_stats_*.csv.gz` |
+| **V2** | `src/v2/runs/` | Same directory | `runs/final_states/` | — |
+| **V3** | `src/v3/runs/` | Same directory | `runs/final_states/` | V3 TensorBoard metrics (`v3/*`) |
 
 ### Folder Purposes
 

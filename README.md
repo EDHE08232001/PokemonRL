@@ -144,7 +144,7 @@ V2 replaces frame-based exploration with **coordinate counting** and uses a **st
 
 ### V3 (Experimental) — Recurrent Memory, Semantic Text, & Topological Graph
 
-V3 extends V2 with three new systems aimed at pushing the agent beyond pure spatial exploration toward narrative understanding and structural map reasoning. **Full details: [v3/README.md](v3/README.md)**
+V3 extends V2 with three new systems aimed at pushing the agent beyond pure spatial exploration toward narrative understanding and structural map reasoning. **Full details: [src/v3/README.md](src/v3/README.md)**
 
 **Key additions**:
 1. **Recurrent Memory (LSTM)**: Replaces PPO with RecurrentPPO (`sb3-contrib`). The `MultiInputLstmPolicy` maintains hidden state across the episode, giving the agent working memory for multi-step tasks (building navigation, dialogue sequences). The `recent_actions` observation is removed since the LSTM handles temporal action history natively.
@@ -154,8 +154,8 @@ V3 extends V2 with three new systems aimed at pushing the agent beyond pure spat
 **New dependencies**: `sb3-contrib`, `networkx`
 
 ```bash
-pip install -r requirements/requirements-v3.txt
-cd v3
+pip install .[v3]
+cd src/v3
 python baseline_fast_v3.py
 ```
 
@@ -194,8 +194,11 @@ python baseline_fast_v3.py
 cp /path/to/PokemonRed.gb ROM_INPUT/PokemonRed.gb
 
 # 2. Install dependencies (pick one)
-pip install -r requirements/requirements-v2.txt          # V2 (recommended)
-pip install -r requirements/requirements-baseline.txt    # Baseline
+pip install .                # Core (V2, recommended)
+pip install .[macos]         # macOS (M1/Intel, no NVIDIA)
+pip install .[windows]       # Windows with NVIDIA GPU
+pip install .[v3]            # V3 extras (sb3-contrib, networkx)
+pip install .[baseline]      # Baseline extras (hnswlib)
 
 # 3. Run
 python main.py
@@ -208,6 +211,7 @@ python main.py
   [2] Run Baseline    (play with trained model)
   [3] Train V2
   [4] Run V2          (play with trained model)
+  [5] Train V3
 ```
 
 ---
@@ -225,8 +229,8 @@ python main.py
 ### Option A: Using the Menu (Recommended)
 
 ```bash
-# Install V2 dependencies
-pip install -r requirements/requirements-v2.txt
+# Install dependencies
+pip install .
 
 # Place ROM
 cp /path/to/PokemonRed.gb ROM_INPUT/PokemonRed.gb
@@ -242,16 +246,16 @@ python main.py
 #### Train V2
 
 ```bash
-pip install -r requirements/requirements-v2.txt
-cd v2
+pip install .
+cd src/v2
 python baseline_fast_v2.py
 ```
 
 This will:
 1. Spin up 64 parallel Pokemon Red emulators
 2. Begin PPO training with `MultiInputPolicy`
-3. Save checkpoints to `v2/runs/` (every `ep_length // 2` steps)
-4. Log to TensorBoard in `v2/runs/`
+3. Save checkpoints to `src/v2/runs/` (every `ep_length // 2` steps)
+4. Log to TensorBoard in `src/v2/runs/`
 
 To resume from a checkpoint, pipe the checkpoint path via stdin:
 ```bash
@@ -261,15 +265,15 @@ echo "runs/poke_26214400_steps" | python baseline_fast_v2.py
 #### Train Baseline
 
 ```bash
-pip install -r requirements/requirements-baseline.txt
-cd baseline
+pip install .[baseline]
+cd src/baseline
 python run_baseline_parallel_fast.py
 ```
 
 This will:
 1. Spin up 16 parallel Pokemon Red emulators
 2. Begin PPO training with `CnnPolicy`
-3. Save checkpoints to `baseline/session_<id>/`
+3. Save checkpoints to `src/baseline/session_<id>/`
 4. Log to TensorBoard in the session directory
 
 To resume from a checkpoint, edit `file_name` in `run_baseline_parallel_fast.py` to point to your checkpoint.
@@ -292,7 +296,7 @@ Key parameters you may want to adjust (in the training scripts):
 
 ### Enable Weights & Biases Logging
 
-Set `use_wandb_logging = True` in the training script. You will need a W&B account and `wandb` installed (`pip install wandb`).
+Set `use_wandb_logging = True` in the training script. You will need a W&B account and `wandb` installed (`pip install .[dev]`).
 
 ---
 
@@ -300,10 +304,8 @@ Set `use_wandb_logging = True` in the training script. You will need a W&B accou
 
 ### V2 (Recommended)
 
-A pre-trained V2 checkpoint is included in `v2/runs/`.
-
 ```bash
-cd v2
+cd src/v2
 
 # Auto-loads the most recent checkpoint from runs/
 python run_pretrained_interactive.py
@@ -312,7 +314,7 @@ python run_pretrained_interactive.py
 ### Baseline
 
 ```bash
-cd baseline
+cd src/baseline
 
 # Edit file_name in run_pretrained_interactive.py to point to your checkpoint
 python run_pretrained_interactive.py
@@ -332,61 +334,83 @@ python run_pretrained_interactive.py
 
 ```
 PokemonRL/
-├── main.py                  # Entry point - menu to train or run models
-├── ROM_INPUT/               # Place PokemonRed.gb here
-├── saves/                   # Game save states for initializing training
-│   ├── init.state           # Early game state (used by V2)
-│   ├── has_pokedex.state
-│   ├── has_pokedex_nballs.state  # Has Pokedex + Pokeballs (used by Baseline)
-│   └── fast_text_start.state
+├── main.py                      # Entry point — interactive menu to train or run models
+├── pyproject.toml               # Python package config with optional dependency extras
+├── ROM_INPUT/                   # Place PokemonRed.gb here (user-supplied, gitignored)
+├── saves/                       # Game Boy save states for initializing training episodes
+│   ├── init.state               # Early game state (used by V2, V3)
+│   ├── has_pokedex.state        # Has Pokedex obtained
+│   ├── has_pokedex_nballs.state # Has Pokedex + Pokeballs (used by Baseline)
+│   └── fast_text_start.state    # Fast text speed enabled
 │
-├── baseline/                # Baseline approach (V1)
-│   ├── red_gym_env.py       # Gym environment (KNN frame exploration)
-│   ├── run_baseline_parallel_fast.py  # Training script (16 CPUs)
-│   ├── run_baseline_parallel.py       # Alternate training script (44 CPUs)
-│   ├── run_pretrained_interactive.py  # Play with trained model
-│   ├── red_gym_env_minimal.py         # Minimal env variant (experimental)
-│   ├── baseline_fast_minimal.py       # Minimal training script
-│   ├── memory_addresses.py  # Game Boy memory address constants
-│   ├── global_map.py        # Map coordinate conversion
-│   ├── tensorboard_callback.py  # TensorBoard logging callback
-│   ├── stream_agent_wrapper.py  # WebSocket live map streaming
-│   └── ...
+├── src/                         # All training approach source code
+│   ├── baseline/                # Baseline approach (V1) — KNN frame exploration
+│   │   ├── red_gym_env.py       # Gym environment (KNN frame exploration)
+│   │   ├── red_gym_env_minimal.py  # Minimal env variant (experimental)
+│   │   ├── run_baseline_parallel_fast.py  # Training script (16 CPUs)
+│   │   ├── run_baseline_parallel.py       # Alternate training script (44 CPUs)
+│   │   ├── run_pretrained_interactive.py  # Play with trained model
+│   │   ├── baseline_fast_minimal.py       # Minimal training script
+│   │   ├── run_recorded_actions.py        # Replay recorded actions
+│   │   ├── memory_addresses.py  # Game Boy memory address constants
+│   │   ├── global_map.py        # Map coordinate conversion
+│   │   ├── tensorboard_callback.py  # TensorBoard logging callback
+│   │   ├── stream_agent_wrapper.py  # WebSocket live map streaming
+│   │   ├── events.json          # Event flag names (parsed from pokered)
+│   │   ├── map_data.json        # Map region coordinate data
+│   │   └── ray_exp/             # Experimental Ray RLlib training
+│   │       ├── red_gym_env_ray.py
+│   │       └── train_ray.py
+│   │
+│   ├── v2/                      # V2 approach (recommended) — coordinate exploration
+│   │   ├── red_gym_env_v2.py    # Gym environment (coordinate exploration)
+│   │   ├── baseline_fast_v2.py  # Training script (64 CPUs)
+│   │   ├── run_pretrained_interactive.py  # Play with trained model
+│   │   ├── global_map.py        # Map coordinate conversion
+│   │   ├── tensorboard_callback.py  # TensorBoard logging callback
+│   │   ├── stream_agent_wrapper.py  # WebSocket live map streaming
+│   │   ├── events.json          # Event flag names
+│   │   ├── map_data.json        # Map region coordinate data
+│   │   └── go_forever.sh        # Continuous training wrapper script
+│   │
+│   └── v3/                      # V3 approach (experimental) — LSTM + text + graph
+│       ├── red_gym_env_v3.py    # Gym environment (LSTM + text + graph)
+│       ├── baseline_fast_v3.py  # Training script (RecurrentPPO, 64 CPUs)
+│       ├── tensorboard_callback_v3.py  # TensorBoard logging (+ V3 metrics)
+│       ├── global_map.py        # Map coordinate conversion
+│       ├── stream_agent_wrapper.py  # WebSocket live map streaming
+│       ├── events.json          # Event flag names
+│       ├── map_data.json        # Map region coordinate data
+│       ├── go_forever.sh        # Continuous training wrapper script
+│       └── README.md            # V3 architecture documentation
 │
-├── v2/                      # V2 approach (recommended)
-│   ├── red_gym_env_v2.py    # Gym environment (coordinate exploration)
-│   ├── baseline_fast_v2.py  # Training script (64 CPUs)
-│   ├── run_pretrained_interactive.py  # Play with trained model
-│   ├── global_map.py        # Map coordinate conversion
-│   ├── tensorboard_callback.py  # TensorBoard logging callback
-│   ├── stream_agent_wrapper.py  # WebSocket live map streaming
-│   ├── events.json          # Event flag names (parsed from pokered)
-│   ├── map_data.json        # Map region coordinate data
-│   └── runs/                # Pre-trained checkpoint included
-│       └── poke_26214400.zip
+├── visualization/               # Map and progress visualization scripts & notebooks
+│   ├── BetterMapVis_script_version.py
+│   ├── BetterMapVis_script_version_FLOW.py
+│   ├── BetterMapVis_script_version_FLOW_edge.py
+│   ├── BetterMapVis_script_version_PROG_COLOR.py
+│   ├── poke_map/                # Map assets (base map images)
+│   └── sprites/                 # Sprite assets for visualization
 │
-├── v3/                      # V3 approach (experimental)
-│   ├── red_gym_env_v3.py    # Gym environment (LSTM + text + graph)
-│   ├── baseline_fast_v3.py  # Training script (RecurrentPPO, 64 CPUs)
-│   ├── tensorboard_callback_v3.py  # TensorBoard logging (+ V3 metrics)
-│   ├── global_map.py        # Map coordinate conversion
-│   ├── stream_agent_wrapper.py  # WebSocket live map streaming
-│   ├── events.json          # Event flag names
-│   ├── map_data.json        # Map region coordinate data
-│   └── README.md            # V3 architecture documentation
-│
-├── requirements/            # All pip dependency files (centralized)
-│   ├── requirements-base.txt              # Shared core deps (unpinned)
-│   ├── requirements-baseline.txt          # Baseline pinned deps
-│   ├── requirements-baseline-unfrozen.txt # Baseline unpinned deps
-│   ├── requirements-v2.txt               # V2 pinned deps (Linux/CUDA)
-│   ├── requirements-v2-macos.txt         # V2 pinned deps (macOS)
-│   ├── requirements-v3.txt              # V3 deps (adds sb3-contrib, networkx)
-│   └── requirements-ray.txt             # Ray RLlib experiment deps
-│
-├── visualization/           # Map and progress visualization scripts
-└── assets/                  # Images and media for documentation
+├── assets/                      # Images and media for documentation
+├── experiments/                 # Experimental utilities (test images, CLIP tests)
+├── windows-setup-guide.md       # Windows-specific installation guide
+└── LICENSE
 ```
+
+### Folder Purposes
+
+| Folder | Purpose |
+|--------|---------|
+| `src/` | Contains all versioned training code. Each subfolder (`baseline/`, `v2/`, `v3/`) is a self-contained training approach with its own environment, training script, and utilities. |
+| `src/baseline/` | **V1 (Baseline)** — The original approach using KNN frame-based novelty exploration with `CnnPolicy`. Includes the HNSW index for approximate nearest-neighbor search over downsampled game frames. |
+| `src/v2/` | **V2 (Recommended)** — Coordinate-based exploration with `MultiInputPolicy`. Faster training, lower memory, structured dict observations. The go-to version for stable training runs. |
+| `src/v3/` | **V3 (Experimental)** — Extends V2 with RecurrentPPO (LSTM memory), semantic text rewards via RAM hooking, and topological graph navigation using NetworkX. Active research. |
+| `saves/` | Game Boy emulator save states (`.state` files) used to initialize training episodes at specific game points. These are binary snapshots of the emulator's full RAM state. |
+| `ROM_INPUT/` | Placeholder for the user's legally obtained Pokemon Red ROM file. Gitignored — not included in the repository. |
+| `visualization/` | Scripts and Jupyter notebooks for rendering exploration maps, trajectory visualizations, and training progress videos. |
+| `assets/` | Static images (SVG, PNG, JPG, GIF) used in README documentation. |
+| `experiments/` | Miscellaneous experimental scripts and test images (e.g., CLIP-based location description tests). |
 
 ---
 
@@ -410,11 +434,11 @@ shasum ROM_INPUT/PokemonRed.gb
 
 ```bash
 # For V2
-tensorboard --logdir v2/runs/
+tensorboard --logdir src/v2/runs/
 # Open http://localhost:6006
 
 # For Baseline
-tensorboard --logdir baseline/session_<id>/
+tensorboard --logdir src/baseline/session_<id>/
 ```
 
 TensorBoard will show:
@@ -461,14 +485,18 @@ View the live map: https://pwhiddy.github.io/pokerl-map-viz/
 
 - Python 3.10+
 - ffmpeg (available on PATH)
-- All dependency files are in `requirements/`:
-  - `requirements-v2.txt` — V2 pinned (Linux/CUDA, recommended)
-  - `requirements-v2-macos.txt` — V2 pinned (macOS, no NVIDIA packages)
-  - `requirements-v3.txt` — V3 (adds sb3-contrib, networkx)
-  - `requirements-baseline.txt` — Baseline pinned
-  - `requirements-baseline-unfrozen.txt` — Baseline unpinned (flexible)
-  - `requirements-base.txt` — Shared core deps (unpinned)
-  - `requirements-ray.txt` — Ray RLlib experiment
+- Dependencies are managed via `pyproject.toml`:
+
+```bash
+pip install .              # Core deps (V2)
+pip install .[macos]       # macOS — no NVIDIA packages
+pip install .[windows]     # Windows — includes CUDA 12.4 packages
+pip install .[v3]          # V3 extras — sb3-contrib, networkx
+pip install .[baseline]    # Baseline extras — hnswlib
+pip install .[all]         # Everything (V3 + Baseline extras)
+pip install .[dev]         # Dev tools — wandb, ipython, jupyter
+pip install .[ray]         # Ray RLlib experiment
+```
 
 ### Key Dependencies
 

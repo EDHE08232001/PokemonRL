@@ -13,9 +13,9 @@ import sys
 import os
 
 # Paths to the training approach directories
-BASELINE_DIR = os.path.join(os.path.dirname(__file__), "baseline")
-V2_DIR = os.path.join(os.path.dirname(__file__), "v2")
-V3_DIR = os.path.join(os.path.dirname(__file__), "v3")
+BASELINE_DIR = os.path.join(os.path.dirname(__file__), "src", "baseline")
+V2_DIR = os.path.join(os.path.dirname(__file__), "src", "v2")
+V3_DIR = os.path.join(os.path.dirname(__file__), "src", "v3")
 
 
 def print_banner():

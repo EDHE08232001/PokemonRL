@@ -1,0 +1,126 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "pokemonrl"
+version = "0.1.0"
+description = "Reinforcement learning agents that learn to play Pokemon Red using PyBoy and Stable Baselines 3 PPO."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+
+dependencies = [
+    # Core RL
+    "stable-baselines3>=2.3.2",
+    "gymnasium>=0.29.1",
+    "torch>=2.5.0",
+
+    # Emulator
+    "pyboy>=2.4.0",
+    "PySDL2",
+    "pysdl2-dll",
+
+    # Numeric / image
+    "numpy>=2.1.0",
+    "einops>=0.8.0",
+    "scikit-image>=0.24.0",
+    "scipy>=1.14.0",
+    "matplotlib>=3.9.0",
+    "pandas>=2.2.0",
+    "pillow>=11.0.0",
+
+    # Video / streaming / logging
+    "mediapy>=1.2.2",
+    "tensorboard>=2.18.0",
+    "websockets>=13.1",
+]
+
+[project.optional-dependencies]
+# V3 extras: RecurrentPPO (LSTM) + topological graph
+v3 = [
+    "sb3-contrib>=2.3.0",
+    "networkx>=3.0",
+]
+
+# Baseline (V1) extras: KNN frame exploration
+baseline = [
+    "hnswlib>=0.7.0",
+]
+
+# macOS (Apple Silicon / Intel) — no NVIDIA packages
+macos = [
+    "stable-baselines3>=2.3.2",
+    "gymnasium>=0.29.1",
+    "torch>=2.5.0",
+    "pyboy>=2.4.0",
+    "PySDL2",
+    "pysdl2-dll",
+    "numpy>=2.1.0",
+    "einops>=0.8.0",
+    "scikit-image>=0.24.0",
+    "scipy>=1.14.0",
+    "matplotlib>=3.9.0",
+    "pandas>=2.2.0",
+    "pillow>=11.0.0",
+    "mediapy>=1.2.2",
+    "tensorboard>=2.18.0",
+    "websockets>=13.1",
+]
+
+# Windows with NVIDIA GPU — includes CUDA-enabled torch
+windows = [
+    "stable-baselines3>=2.3.2",
+    "gymnasium>=0.29.1",
+    "torch>=2.5.0",
+    "pyboy>=2.4.0",
+    "PySDL2",
+    "pysdl2-dll",
+    "numpy>=2.1.0",
+    "einops>=0.8.0",
+    "scikit-image>=0.24.0",
+    "scipy>=1.14.0",
+    "matplotlib>=3.9.0",
+    "pandas>=2.2.0",
+    "pillow>=11.0.0",
+    "mediapy>=1.2.2",
+    "tensorboard>=2.18.0",
+    "websockets>=13.1",
+    "nvidia-cublas-cu12>=12.4",
+    "nvidia-cuda-cupti-cu12>=12.4",
+    "nvidia-cuda-nvrtc-cu12>=12.4",
+    "nvidia-cuda-runtime-cu12>=12.4",
+    "nvidia-cudnn-cu12>=9.1",
+    "nvidia-cufft-cu12>=11.2",
+    "nvidia-curand-cu12>=10.3",
+    "nvidia-cusolver-cu12>=11.6",
+    "nvidia-cusparse-cu12>=12.3",
+    "nvidia-nccl-cu12>=2.21",
+    "nvidia-nvjitlink-cu12>=12.4",
+    "nvidia-nvtx-cu12>=12.4",
+]
+
+# All extras combined (V3 + Baseline + Windows GPU)
+all = [
+    "sb3-contrib>=2.3.0",
+    "networkx>=3.0",
+    "hnswlib>=0.7.0",
+]
+
+# Ray RLlib experiment (baseline/ray_exp/)
+ray = [
+    "ray[default,rllib,tune,air]",
+    "hnswlib>=0.7.0",
+    "gputil",
+    "seaborn",
+]
+
+# Development / optional tooling
+dev = [
+    "wandb",
+    "ipython",
+    "jupyter",
+]
+
+[tool.setuptools]
+py-modules = []

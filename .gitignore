@@ -29,15 +29,28 @@ env/
 *~
 
 # Training artifacts
-session_*
+session_*/
 rollouts/
 final_states/
 screenshots/
 
-# Model checkpoints (large files, user-generated)
-# Keep pre-trained ones in v2/runs/ via nested .gitignore
+# Model checkpoints & weights (large binary files)
 *.zip
-!v2/runs/*.zip
+*.pth
+
+# Save states (large binary emulator snapshots)
+# Keep only the base initialization states tracked via explicit git add
+*.state
+
+# TensorBoard / training run logs
+runs/
+
+# Photoshop / design source files
+*.psd
+
+# Runtime flags (generated at runtime, not source code)
+agent_enabled.txt
+delete_empty_imgs.txt
 
 # Emulator / game artifacts
 *.ram
@@ -53,7 +66,6 @@ ROM_INPUT/*.gbc
 *.log
 *.csv.gz
 wandb/
-runs/histogram/
 
 # Secrets / config
 .env

@@ -38,6 +38,7 @@ def print_menu():
     print("  [4] Run V2          (play with trained V2 model)")
     print()
     print("  [5] Train V3        (LSTM + text + graph, RecurrentPPO)")
+    print("  [6] Run V3          (play with trained V3 model)")
     print()
     print("  [q] Quit")
     print()
@@ -95,6 +96,10 @@ def main():
             if not check_rom():
                 continue
             run_script(V3_DIR, "baseline_fast_v3.py")
+        elif choice == "6":
+            if not check_rom():
+                continue
+            run_script(V3_DIR, "run_pretrained_interactive.py")
         else:
             print("Invalid choice. Try again.\n")
 

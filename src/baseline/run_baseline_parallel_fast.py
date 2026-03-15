@@ -5,9 +5,19 @@ Trains PPO with CnnPolicy on 16 parallel Pokemon Red environments.
 Uses KNN frame-based exploration. Supports checkpoint resumption and W&B logging.
 """
 
+import sys
 from os.path import exists
 from pathlib import Path
 import uuid
+
+# Resolve absolute paths relative to this script's location
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+
+# Ensure the script's directory is on sys.path for local imports
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
 from red_gym_env import RedGymEnv
 from stable_baselines3 import PPO
 from stable_baselines3.common import env_checker
@@ -32,13 +42,13 @@ if __name__ == '__main__':
     use_wandb_logging = False
     ep_length = 2048 * 10  # steps per episode per environment
     sess_id = str(uuid.uuid4())[:8]
-    sess_path = Path(f'session_{sess_id}')
+    sess_path = _SCRIPT_DIR / f'session_{sess_id}'
 
     env_config = {
         'headless': True, 'save_final_state': True, 'early_stop': False,
-        'action_freq': 24, 'init_state': '../../saves/has_pokedex_nballs.state', 'max_steps': ep_length,
+        'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'has_pokedex_nballs.state'), 'max_steps': ep_length,
         'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
-        'gb_path': '../../ROM_INPUT/PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0,
+        'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'sim_frame_dist': 2_000_000.0,
         'use_screen_explore': True, 'reward_scale': 4, 'extra_buttons': False,
         'explore_weight': 3
     }
@@ -67,7 +77,7 @@ if __name__ == '__main__':
         callbacks.append(WandbCallback())
 
     # Resume from checkpoint if available
-    file_name = 'session_e41c9eff/poke_38207488_steps'
+    file_name = str(_SCRIPT_DIR / 'session_e41c9eff' / 'poke_38207488_steps')
 
     if exists(file_name + '.zip'):
         print('\nloading checkpoint')

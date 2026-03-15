@@ -5,9 +5,19 @@ Loads a checkpoint and runs the agent in a visible window.
 Toggle AI control by writing 'yes'/'no' to agent_enabled.txt.
 """
 
+import sys
 from os.path import exists
 from pathlib import Path
 import uuid
+
+# Resolve absolute paths relative to this script's location
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+
+# Ensure the script's directory is on sys.path for local imports
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
 from red_gym_env import RedGymEnv
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common import env_checker
@@ -27,21 +37,21 @@ def make_env(rank, env_conf, seed=0):
 
 if __name__ == '__main__':
 
-    sess_path = Path(f'session_{str(uuid.uuid4())[:8]}')
+    sess_path = _SCRIPT_DIR / f'session_{str(uuid.uuid4())[:8]}'
     ep_length = 2**23  # very long episode for interactive play
 
     env_config = {
         'headless': False, 'save_final_state': True, 'early_stop': False,
-        'action_freq': 24, 'init_state': '../../saves/has_pokedex_nballs.state', 'max_steps': ep_length,
+        'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'has_pokedex_nballs.state'), 'max_steps': ep_length,
         'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
-        'gb_path': '../../ROM_INPUT/PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0, 'extra_buttons': True
+        'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'sim_frame_dist': 2_000_000.0, 'extra_buttons': True
     }
 
     # Single environment (no parallelism) for interactive mode
     num_cpu = 1
     env = make_env(0, env_config)()
 
-    file_name = 'session_4da05e87_main_good/poke_439746560_steps'
+    file_name = str(_SCRIPT_DIR / 'session_4da05e87_main_good' / 'poke_439746560_steps')
 
     print('\nloading checkpoint')
     model = PPO.load(file_name, env=env, custom_objects={'lr_schedule': 0, 'clip_range': 0})
@@ -51,7 +61,7 @@ if __name__ == '__main__':
         action = 7  # default: pass (no-op)
         # Read agent_enabled.txt to toggle AI control at runtime
         try:
-            with open("agent_enabled.txt", "r") as f:
+            with open(_SCRIPT_DIR / "agent_enabled.txt", "r") as f:
                 agent_enabled = f.readlines()[0].startswith("yes")
         except:
             agent_enabled = False

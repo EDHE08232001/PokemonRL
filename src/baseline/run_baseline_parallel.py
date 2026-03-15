@@ -1,6 +1,16 @@
+import sys
 from os.path import exists
 from pathlib import Path
 import uuid
+
+# Resolve absolute paths relative to this script's location
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+
+# Ensure the script's directory is on sys.path for local imports
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
 from red_gym_env import RedGymEnv
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common import env_checker
@@ -27,13 +37,13 @@ if __name__ == '__main__':
 
 
     ep_length = 2048 * 8
-    sess_path = Path(f'session_{str(uuid.uuid4())[:8]}')
+    sess_path = _SCRIPT_DIR / f'session_{str(uuid.uuid4())[:8]}'
 
     env_config = {
                 'headless': True, 'save_final_state': True, 'early_stop': False,
-                'action_freq': 24, 'init_state': '../../saves/has_pokedex_nballs.state', 'max_steps': ep_length,
+                'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'has_pokedex_nballs.state'), 'max_steps': ep_length,
                 'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
-                'gb_path': '../../ROM_INPUT/PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0, 
+                'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'sim_frame_dist': 2_000_000.0,
                 'use_screen_explore': True, 'extra_buttons': False
             }
     
@@ -45,9 +55,8 @@ if __name__ == '__main__':
                                      name_prefix='poke')
     #env_checker.check_env(env)
     learn_steps = 40
-    file_name = 'session_e41c9eff/poke_38207488_steps' #'session_e41c9eff/poke_250871808_steps'
-    
-    #'session_bfdca25a/poke_42532864_steps' #'session_d3033abb/poke_47579136_steps' #'session_a17cc1f5/poke_33546240_steps' #'session_e4bdca71/poke_8945664_steps' #'session_eb21989e/poke_40255488_steps' #'session_80f70ab4/poke_58982400_steps'
+    file_name = str(_SCRIPT_DIR / 'session_e41c9eff' / 'poke_38207488_steps')
+
     if exists(file_name + '.zip'):
         print('\nloading checkpoint')
         model = PPO.load(file_name, env=env)

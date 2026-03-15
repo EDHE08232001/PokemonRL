@@ -1,6 +1,14 @@
+import sys
 from os.path import exists
 from pathlib import Path
 import uuid
+
+# Resolve absolute paths relative to this script's location
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
 
 from stable_baselines3 import PPO
 from stable_baselines3.common import env_checker
@@ -22,7 +30,7 @@ def make_env(rank, seed=0):
     """
     def _init():
         env = StreamWrapper(
-            PokeRedEnv('../../ROM_INPUT/PokemonRed.gb', '../../saves/has_pokedex_nballs.state'), 
+            PokeRedEnv(str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), str(_PROJECT_ROOT / 'saves' / 'has_pokedex_nballs.state')),
             stream_metadata = { # All of this is part is optional
                 "user": "v3-test", # choose your own username
                 "env_id": rank, # environment identifier
@@ -40,7 +48,7 @@ if __name__ == "__main__":
     use_wandb_logging = False
     ep_length = 2048 * 10
     sess_id = str(uuid.uuid4())[:8]
-    sess_path = Path(f'session_{sess_id}')
+    sess_path = _SCRIPT_DIR / f'session_{sess_id}'
 
         
     num_cpu = 24  # Also sets the number of episodes per training iteration

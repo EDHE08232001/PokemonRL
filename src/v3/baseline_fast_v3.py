@@ -14,6 +14,18 @@ Key changes from V2:
 import sys
 from os.path import exists
 from pathlib import Path
+
+# Resolve absolute paths relative to this script's location
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+
+# Ensure the script's directory and src/ are on sys.path for local imports
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+_SRC_DIR = _SCRIPT_DIR.parent
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+
 from v3.red_gym_env_v3 import RedGymEnv
 from v3.stream_agent_wrapper import StreamWrapper
 from sb3_contrib import RecurrentPPO
@@ -46,13 +58,13 @@ if __name__ == "__main__":
     use_wandb_logging = False
     ep_length = 2048 * 80  # steps per episode per environment
     sess_id = "runs"
-    sess_path = Path(sess_id)
+    sess_path = _SCRIPT_DIR / sess_id
 
     env_config = {
         'headless': True, 'save_final_state': False, 'early_stop': False,
-        'action_freq': 24, 'init_state': '../../saves/init.state', 'max_steps': ep_length,
+        'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'init.state'), 'max_steps': ep_length,
         'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
-        'gb_path': '../../ROM_INPUT/PokemonRed.gb', 'debug': False, 'reward_scale': 0.5, 'explore_weight': 0.25
+        'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'reward_scale': 0.5, 'explore_weight': 0.25
     }
 
     print(env_config)
@@ -85,6 +97,9 @@ if __name__ == "__main__":
         file_name = ""
     else:
         file_name = sys.stdin.read().strip()
+        # Resolve relative checkpoint paths against the script directory
+        if file_name and not Path(file_name).is_absolute():
+            file_name = str(_SCRIPT_DIR / file_name)
 
     train_steps_batch = ep_length // 64  # n_steps per PPO update
 

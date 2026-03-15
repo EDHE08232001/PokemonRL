@@ -1,5 +1,5 @@
 """
-Interactive play with a trained V2 PPO model.
+Interactive play with a trained V3 RecurrentPPO model.
 
 Loads the most recent checkpoint from runs/ and runs the agent visibly.
 Toggle AI control by writing 'yes'/'no' to agent_enabled.txt.
@@ -18,20 +18,20 @@ import glob
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _SCRIPT_DIR.parent.parent
 
-# Ensure the script's directory is on sys.path for local imports
+# Ensure the script's directory and src/ are on sys.path for local imports
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
+_SRC_DIR = _SCRIPT_DIR.parent
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
 
-from red_gym_env_v2 import RedGymEnv
-from stable_baselines3 import A2C, PPO
-from stable_baselines3.common import env_checker
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from v3.red_gym_env_v3 import RedGymEnv
+from sb3_contrib import RecurrentPPO
 from stable_baselines3.common.utils import set_random_seed
-from stable_baselines3.common.callbacks import CheckpointCallback
 
 
 def make_env(rank, env_conf, seed=0):
-    """Create a closure that initializes a RedGymEnv for SubprocVecEnv."""
+    """Create a closure that initializes a RedGymEnv."""
     def _init():
         env = RedGymEnv(env_conf)
         return env
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         'headless': False, 'save_final_state': True, 'early_stop': False,
         'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'init.state'), 'max_steps': ep_length,
         'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
-        'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'sim_frame_dist': 2_000_000.0, 'extra_buttons': False
+        'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'reward_scale': 0.5, 'explore_weight': 0.25
     }
 
     # Single environment for interactive mode
@@ -75,12 +75,19 @@ if __name__ == '__main__':
     most_recent_checkpoint, time_since = get_most_recent_zip_with_age(str(_SCRIPT_DIR / "runs"))
     if most_recent_checkpoint is not None:
         file_name = most_recent_checkpoint
-        print(f"using checkpoint: {file_name}, which is {time_since} hours old")
+        print(f"using checkpoint: {file_name}, which is {time_since:.2f} hours old")
+    else:
+        print("ERROR: No checkpoint found in runs/ directory")
+        sys.exit(1)
 
     print('\nloading checkpoint')
-    model = PPO.load(file_name, env=env, custom_objects={'lr_schedule': 0, 'clip_range': 0})
+    model = RecurrentPPO.load(file_name, env=env, custom_objects={'lr_schedule': 0, 'clip_range': 0})
 
     obs, info = env.reset()
+    # RecurrentPPO requires LSTM states to be tracked across steps
+    lstm_states = None
+    episode_start = True
+
     while True:
         # Toggle AI control at runtime via agent_enabled.txt
         try:
@@ -89,7 +96,8 @@ if __name__ == '__main__':
         except:
             agent_enabled = False
         if agent_enabled:
-            action, _states = model.predict(obs, deterministic=False)
+            action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_start, deterministic=False)
+            episode_start = False
             obs, rewards, terminated, truncated, info = env.step(action)
         else:
             # Manual mode: just tick emulator (player uses SDL2 window controls)

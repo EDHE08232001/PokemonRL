@@ -61,6 +61,58 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
 
 ---
 
+## Outputs & Logs
+
+All outputs are saved to a single directory:
+
+```
+src/v3/runs/
+├── poke_<steps>_steps.zip                          # Model checkpoints (includes LSTM state)
+├── curframe_<id>.jpeg                              # Current frame snapshots
+├── PPO_1/events.out.tfevents.*                     # TensorBoard event files
+└── final_states/                                   # Screenshots at episode end
+    ├── frame_r<reward>_<count>_explore_map.jpeg    # Local exploration map
+    ├── frame_r<reward>_<count>_full_explore_map.jpeg  # Full exploration map
+    └── frame_r<reward>_<count>_full.jpeg           # Full game screen
+```
+
+**TensorBoard logs** are in the same `runs/` directory. V3 adds these metrics under `v3/`:
+- `v3/mean_dialogue_count` / `v3/max_dialogue_count` — unique dialogue strings discovered
+- `v3/mean_graph_nodes` / `v3/max_graph_nodes` — topological graph size
+- `v3/mean_maps_discovered` / `v3/max_maps_discovered` — unique map IDs reached via warps
+
+Plus all standard V2 metrics (`env_stats/`, `env_stats_max/`, `env_stats_distribs/`, `trajectory/`).
+
+## Checkpoints
+
+- **Format**: `poke_<total_steps>_steps.zip`
+- **Location**: `src/v3/runs/`
+- **Frequency**: Every `ep_length // 2` steps (81,920 steps)
+- Checkpoints include full LSTM state serialization (hidden and cell states)
+
+## Running a Pre-trained Model
+
+1. Place your checkpoint `.zip` file inside the runs directory:
+   ```
+   src/v3/runs/poke_<STEPS>_steps.zip
+   ```
+
+2. Run:
+   ```bash
+   python src/v3/run_pretrained_interactive.py
+   ```
+
+The script **auto-detects the most recent checkpoint** in `src/v3/runs/`. It properly maintains LSTM hidden states across steps, passing `state` and `episode_start` to `model.predict()` for correct recurrent inference.
+
+## When Training Stops
+
+- The latest checkpoint `.zip` (with LSTM state) remains in `src/v3/runs/`
+- Episode screenshots are saved to `final_states/`
+- Use `go_forever.sh` for unattended long-term training that auto-resumes after interruption
+- Resume manually: `echo "runs/poke_XXXXXXX_steps" | python src/v3/baseline_fast_v3.py`
+
+---
+
 ## Running V3
 
 All scripts use **absolute path resolution** — they work correctly from any working directory.

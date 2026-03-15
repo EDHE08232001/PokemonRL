@@ -61,7 +61,9 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
 
 ---
 
-## Running V3 Training
+## Running V3
+
+All scripts use **absolute path resolution** — they work correctly from any working directory.
 
 ### Install Dependencies
 
@@ -78,8 +80,7 @@ cp /path/to/PokemonRed.gb ROM_INPUT/PokemonRed.gb
 ### Train
 
 ```bash
-cd src/v3
-python baseline_fast_v3.py
+python src/v3/baseline_fast_v3.py
 ```
 
 This will:
@@ -91,8 +92,33 @@ This will:
 ### Resume from Checkpoint
 
 ```bash
-echo "runs/poke_XXXXXXX_steps" | python baseline_fast_v3.py
+echo "runs/poke_XXXXXXX_steps" | python src/v3/baseline_fast_v3.py
 ```
+
+### Run a Trained Model Interactively
+
+```bash
+python src/v3/run_pretrained_interactive.py
+```
+
+This will:
+1. Auto-detect the most recent `.zip` checkpoint from `src/v3/runs/`
+2. Load the `RecurrentPPO` model with LSTM state tracking
+3. Open an SDL2 window at 6× emulation speed
+
+**Toggle AI control** by creating/editing `src/v3/agent_enabled.txt`:
+- Write `yes` on the first line to let the AI play
+- Write `no` (or delete the file) to play manually via the SDL2 window
+
+The interactive script properly maintains LSTM hidden states across steps, passing `state` and `episode_start` to `model.predict()` for correct recurrent inference.
+
+### Continuous Training
+
+```bash
+src/v3/go_forever.sh
+```
+
+This loops indefinitely, finding the latest checkpoint and resuming training.
 
 ### Monitor Training
 
@@ -123,13 +149,14 @@ All other dependencies are shared with V2 (see `pyproject.toml` at the project r
 
 ```
 src/v3/
-├── red_gym_env_v3.py          # Gym environment (LSTM obs, text hooks, graph nav)
-├── baseline_fast_v3.py        # Training script (RecurrentPPO, 64 parallel envs)
-├── tensorboard_callback_v3.py # TensorBoard logging (+ V3 metrics)
-├── global_map.py              # Map coordinate conversion (shared with V2)
-├── stream_agent_wrapper.py    # WebSocket live map streaming (shared with V2)
-├── events.json                # Event flag names
-├── map_data.json              # Map region coordinate data
-├── go_forever.sh              # Continuous training wrapper
-└── README.md                  # This file
+├── red_gym_env_v3.py              # Gym environment (LSTM obs, text hooks, graph nav)
+├── baseline_fast_v3.py            # Training script (RecurrentPPO, 64 parallel envs)
+├── run_pretrained_interactive.py  # Interactive play with trained model (LSTM state tracking)
+├── tensorboard_callback_v3.py     # TensorBoard logging (+ V3 metrics)
+├── global_map.py                  # Map coordinate conversion (shared with V2)
+├── stream_agent_wrapper.py        # WebSocket live map streaming (shared with V2)
+├── events.json                    # Event flag names
+├── map_data.json                  # Map region coordinate data
+├── go_forever.sh                  # Continuous training wrapper
+└── README.md                      # This file
 ```

@@ -155,8 +155,7 @@ V3 extends V2 with three new systems aimed at pushing the agent beyond pure spat
 
 ```bash
 pip install .[v3]
-cd src/v3
-python baseline_fast_v3.py
+python src/v3/baseline_fast_v3.py
 ```
 
 ---
@@ -204,7 +203,7 @@ pip install .[baseline]      # Baseline extras (hnswlib)
 python main.py
 ```
 
-`main.py` presents a menu to train or run either approach:
+`main.py` presents a menu to train or run any approach:
 
 ```
   [1] Train Baseline
@@ -212,6 +211,7 @@ python main.py
   [3] Train V2
   [4] Run V2          (play with trained model)
   [5] Train V3
+  [6] Run V3          (play with trained model)
 ```
 
 ---
@@ -243,12 +243,13 @@ python main.py
 
 ### Option B: Running Training Scripts Directly
 
+All scripts use **absolute path resolution** based on their own file location, so they work correctly from any working directory.
+
 #### Train V2
 
 ```bash
 pip install .
-cd src/v2
-python baseline_fast_v2.py
+python src/v2/baseline_fast_v2.py
 ```
 
 This will:
@@ -259,15 +260,32 @@ This will:
 
 To resume from a checkpoint, pipe the checkpoint path via stdin:
 ```bash
-echo "runs/poke_26214400_steps" | python baseline_fast_v2.py
+echo "runs/poke_26214400_steps" | python src/v2/baseline_fast_v2.py
+```
+
+#### Train V3
+
+```bash
+pip install .[v3]
+python src/v3/baseline_fast_v3.py
+```
+
+This will:
+1. Spin up 64 parallel Pokemon Red emulators
+2. Begin RecurrentPPO training with `MultiInputLstmPolicy`
+3. Save checkpoints to `src/v3/runs/` (every `ep_length // 2` steps)
+4. Log to TensorBoard in `src/v3/runs/`
+
+To resume from a checkpoint:
+```bash
+echo "runs/poke_XXXXXXX_steps" | python src/v3/baseline_fast_v3.py
 ```
 
 #### Train Baseline
 
 ```bash
 pip install .[baseline]
-cd src/baseline
-python run_baseline_parallel_fast.py
+python src/baseline/run_baseline_parallel_fast.py
 ```
 
 This will:
@@ -282,17 +300,17 @@ To resume from a checkpoint, edit `file_name` in `run_baseline_parallel_fast.py`
 
 Key parameters you may want to adjust (in the training scripts):
 
-| Parameter | Baseline Default | V2 Default | Description |
-|-----------|-----------------|------------|-------------|
-| `num_cpu` | 16 | 64 | Number of parallel environments (reduce if you have fewer cores) |
-| `ep_length` | 20,480 | 163,840 | Steps per episode per environment |
-| `batch_size` | 128 | 512 | PPO minibatch size |
-| `n_epochs` | 3 | 1 | PPO update epochs per rollout |
-| `gamma` | 0.998 | 0.997 | Discount factor |
-| `reward_scale` | 4 | 0.5 | Scales all reward components |
-| `explore_weight` | 3 | 0.25 | Weight of exploration reward |
-| `action_freq` | 24 | 24 | Emulator ticks per agent step |
-| `use_wandb_logging` | False | False | Enable Weights & Biases logging |
+| Parameter | Baseline Default | V2 Default | V3 Default | Description |
+|-----------|-----------------|------------|------------|-------------|
+| `num_cpu` | 16 | 64 | 64 | Number of parallel environments (reduce if you have fewer cores) |
+| `ep_length` | 20,480 | 163,840 | 163,840 | Steps per episode per environment |
+| `batch_size` | 128 | 512 | 512 | PPO minibatch size |
+| `n_epochs` | 3 | 1 | 1 | PPO update epochs per rollout |
+| `gamma` | 0.998 | 0.997 | 0.997 | Discount factor |
+| `reward_scale` | 4 | 0.5 | 0.5 | Scales all reward components |
+| `explore_weight` | 3 | 0.25 | 0.25 | Weight of exploration reward |
+| `action_freq` | 24 | 24 | 24 | Emulator ticks per agent step |
+| `use_wandb_logging` | False | False | False | Enable Weights & Biases logging |
 
 ### Enable Weights & Biases Logging
 
@@ -302,28 +320,35 @@ Set `use_wandb_logging = True` in the training script. You will need a W&B accou
 
 ## Running a Trained Model
 
+All interactive scripts can be run from **any working directory** — they resolve paths relative to their own location.
+
 ### V2 (Recommended)
 
 ```bash
-cd src/v2
-
-# Auto-loads the most recent checkpoint from runs/
-python run_pretrained_interactive.py
+# Auto-loads the most recent checkpoint from src/v2/runs/
+python src/v2/run_pretrained_interactive.py
 ```
+
+### V3
+
+```bash
+# Auto-loads the most recent checkpoint from src/v3/runs/
+python src/v3/run_pretrained_interactive.py
+```
+
+V3 uses `RecurrentPPO` with LSTM state tracking — the hidden state is carried across steps for proper recurrent inference.
 
 ### Baseline
 
 ```bash
-cd src/baseline
-
 # Edit file_name in run_pretrained_interactive.py to point to your checkpoint
-python run_pretrained_interactive.py
+python src/baseline/run_pretrained_interactive.py
 ```
 
 ### Interactive Controls
 
 - **SDL2 window**: The game renders in a visible window. You can use arrow keys and keyboard to play manually.
-- **AI toggle**: Edit `agent_enabled.txt` in the working directory:
+- **AI toggle**: Create/edit `agent_enabled.txt` **in the script's directory** (e.g., `src/v2/agent_enabled.txt`):
   - Write `yes` to let the AI play
   - Write `no` (or delete the file) to play manually
 - The game runs at 6× emulation speed for comfortable viewing.
@@ -376,6 +401,7 @@ PokemonRL/
 │   └── v3/                      # V3 approach (experimental) — LSTM + text + graph
 │       ├── red_gym_env_v3.py    # Gym environment (LSTM + text + graph)
 │       ├── baseline_fast_v3.py  # Training script (RecurrentPPO, 64 CPUs)
+│       ├── run_pretrained_interactive.py  # Play with trained V3 model
 │       ├── tensorboard_callback_v3.py  # TensorBoard logging (+ V3 metrics)
 │       ├── global_map.py        # Map coordinate conversion
 │       ├── stream_agent_wrapper.py  # WebSocket live map streaming
@@ -435,10 +461,14 @@ shasum ROM_INPUT/PokemonRed.gb
 ```bash
 # For V2
 tensorboard --logdir src/v2/runs/
-# Open http://localhost:6006
+
+# For V3
+tensorboard --logdir src/v3/runs/
 
 # For Baseline
 tensorboard --logdir src/baseline/session_<id>/
+
+# Open http://localhost:6006
 ```
 
 TensorBoard will show:
@@ -448,6 +478,7 @@ TensorBoard will show:
 - **trajectory/explore_map**: aggregated exploration map image
 - **trajectory/all_flags**: JSON of all event flags set
 - Standard PPO metrics (loss, entropy, explained variance, etc.)
+- **V3 only**: `v3/mean_dialogue_count`, `v3/mean_graph_nodes`, `v3/mean_maps_discovered` and their max variants
 
 ### Session Directories
 

@@ -40,6 +40,7 @@ def print_menu():
     print("  [5] Train V3        (LSTM + text + graph, RecurrentPPO)")
     print("  [6] Run V3          (play with trained V3 model)")
     print()
+    print("  [c] Check Environment (verify deps, ROM, hardware)")
     print("  [q] Quit")
     print()
 
@@ -100,6 +101,9 @@ def main():
             if not check_rom():
                 continue
             run_script(V3_DIR, "run_pretrained_interactive.py")
+        elif choice == "c":
+            check_script = os.path.join(os.path.dirname(__file__), "check_env.py")
+            subprocess.run([sys.executable, check_script])
         else:
             print("Invalid choice. Try again.\n")
 

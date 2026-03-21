@@ -270,6 +270,10 @@ class RedGymEnv(Env):
 
         return observation
 
+    def get_latest_stats(self):
+        """Return only the most recent stats dict to save multiprocessing pipe memory."""
+        return self.agent_stats[-1] if len(self.agent_stats) > 0 else {}
+
     def step(self, action):
         """Execute one agent step: act, observe, compute reward."""
         if self.save_video and self.step_count == 0:
@@ -301,6 +305,8 @@ class RedGymEnv(Env):
         step_limit_reached = self.check_if_done()
 
         obs = self._get_obs()
+
+        self.save_and_print_info(step_limit_reached, obs)
 
         # Periodically snapshot event flags for logging
         if self.step_count % 100 == 0:

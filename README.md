@@ -147,7 +147,7 @@ V2 replaces frame-based exploration with **coordinate counting** and uses a **st
 V3 extends V2 with three new systems aimed at pushing the agent beyond pure spatial exploration toward narrative understanding and structural map reasoning. **Full details: [src/v3/README.md](src/v3/README.md)**
 
 **Key additions**:
-1. **Recurrent Memory (LSTM)**: Replaces PPO with RecurrentPPO (`sb3-contrib`). The `MultiInputLstmPolicy` maintains hidden state across the episode, giving the agent working memory for multi-step tasks (building navigation, dialogue sequences). The `recent_actions` observation is removed since the LSTM handles temporal action history natively.
+1. **Recurrent Memory (LSTM)**: Replaces PPO with RecurrentPPO (`sb3-contrib`). The `MultiInputLstmPolicy` maintains hidden state across the episode, giving the agent working memory for multi-step tasks (building navigation, dialogue sequences). The `recent_actions` observation is removed since the LSTM handles temporal action history natively. Frame stacking is reduced from 3 to 1 (the LSTM provides temporal context).
 2. **Semantic Text Rewards**: Hooks into Game Boy WRAM (`0xCF4B`) to read and decode the active text buffer using the Gen 1 character map. New unique dialogue strings grant a one-time +0.5 intrinsic reward, incentivizing NPC interaction and sign reading.
 3. **Topological Graph Navigation**: Builds a directed graph (`networkx.DiGraph`) of `(map_id, row, col)` nodes during exploration. Detects "warp edges" (door/teleport transitions between map IDs) and grants a +2.0 bonus for discovering new maps. The shortest-path distance from Pallet Town is fed into the observation as `graph_distance`.
 
@@ -167,17 +167,17 @@ python src/v3/baseline_fast_v3.py
 | **RL Algorithm** | PPO (CnnPolicy) | PPO (MultiInputPolicy) | RecurrentPPO (MultiInputLstmPolicy) |
 | **Exploration method** | KNN over downsampled frames (HNSW, L2 distance) | Coordinate counting (unique tiles visited) | Coordinate counting + topological graph + text |
 | **Observation type** | Flat RGB image (stacked frames + memory bars) | Dict: screens, HP, level, badges, events, map, actions | Dict: screens, HP, level, badges, events, map, text_hash, graph_distance |
-| **Screen format** | 36×40 RGB, 3 stacked | 72×80 grayscale, 3 stacked | 72×80 grayscale, 3 stacked |
+| **Screen format** | 36×40 RGB, 3 stacked | 72×80 grayscale, 3 stacked | 72×80 grayscale, 1 frame (LSTM handles temporal context) |
 | **Policy architecture** | CNN → shared features → actor/critic | CNN (screens, map) + MLP (scalars) → combined → actor/critic | CNN + MLP → LSTM (128h, 1L) → actor/critic |
 | **Parallel envs** | 16 | 64 | 64 |
-| **PPO epochs/update** | 3 | 1 | 1 |
+| **PPO epochs/update** | 3 | 1 | 3 |
 | **Batch size** | 128 | 512 | 512 |
-| **Discount (gamma)** | 0.998 | 0.997 | 0.997 |
+| **Discount (gamma)** | 0.998 | 0.997 | 0.995 |
 | **Entropy coef** | 0 (default) | 0.01 | 0.01 |
 | **Memory usage** | Higher (KNN index ~20K frames) | Lower (coordinate dict only) | Moderate (coords + graph + LSTM states) |
 | **Training speed** | Slower | Faster | Moderate (LSTM overhead) |
 | **Initial game state** | Has Pokedex + Pokeballs | Start of game | Start of game |
-| **Stuck penalty** | No | Yes (-0.05 at 600+ visits) | Yes (-0.05 at 600+ visits) |
+| **Stuck penalty** | No | Yes (-0.05 at 600+ visits) | Yes (-0.5 at 600+ visits) |
 | **Level encoding** | Raw level sum in reward | Fourier-encoded in observation | Fourier-encoded in observation |
 | **Text understanding** | None | None | Gen 1 WRAM text decoding + reward |
 | **Map structure** | None | Flat exploration map | Exploration map + directed graph |
@@ -305,8 +305,8 @@ Key parameters you may want to adjust (in the training scripts):
 | `num_cpu` | 16 | 64 | 64 | Number of parallel environments (reduce if you have fewer cores) |
 | `ep_length` | 20,480 | 163,840 | 163,840 | Steps per episode per environment |
 | `batch_size` | 128 | 512 | 512 | PPO minibatch size |
-| `n_epochs` | 3 | 1 | 1 | PPO update epochs per rollout |
-| `gamma` | 0.998 | 0.997 | 0.997 | Discount factor |
+| `n_epochs` | 3 | 1 | 3 | PPO update epochs per rollout |
+| `gamma` | 0.998 | 0.997 | 0.995 | Discount factor |
 | `reward_scale` | 4 | 0.5 | 0.5 | Scales all reward components |
 | `explore_weight` | 3 | 0.25 | 0.25 | Weight of exploration reward |
 | `action_freq` | 24 | 24 | 24 | Emulator ticks per agent step |

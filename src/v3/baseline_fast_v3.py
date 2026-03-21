@@ -61,7 +61,7 @@ if __name__ == "__main__":
     sess_path = _SCRIPT_DIR / sess_id
 
     env_config = {
-        'headless': True, 'save_final_state': False, 'early_stop': False,
+        'headless': True, 'save_final_state': True, 'early_stop': False,
         'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'init.state'), 'max_steps': ep_length,
         'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
         'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'reward_scale': 0.5, 'explore_weight': 0.25
@@ -125,8 +125,8 @@ if __name__ == "__main__":
             verbose=1,
             n_steps=train_steps_batch,
             batch_size=512,
-            n_epochs=1,
-            gamma=0.997,
+            n_epochs=3,
+            gamma=0.995,
             ent_coef=0.01,
             policy_kwargs=policy_kwargs,
             tensorboard_log=sess_path,

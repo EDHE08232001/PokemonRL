@@ -15,7 +15,7 @@ mkdir -p console_outputs
 cd $HOME/PokemonRL
 
 # Activate your virtual environment
-source v3env/local/bin/activate
+source $HOME/PokemonRL/v3env/local/bin/activate
 
 # Run the V3 training script loop
 bash src/v3/go_forever.sh

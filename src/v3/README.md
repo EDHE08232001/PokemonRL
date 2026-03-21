@@ -132,6 +132,18 @@ The script **auto-detects the most recent checkpoint** in `src/v3/runs/`. It pro
 
 ---
 
+## Dependency Installation
+
+If `pip install .[v3]` does not work on uottawa Morning Star HPC
+
+Use the following command instead
+
+```bash
+pip install stable-baselines3 gymnasium torch pyboy PySDL2 pysdl2-dll numpy einops scikit-image scipy matplotlib pandas pillow mediapy tensorboard websockets sb3-contrib networkx
+```
+
+---
+
 ## Running V3
 
 All scripts use **absolute path resolution** — they work correctly from any working directory.

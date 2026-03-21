@@ -52,8 +52,7 @@ class TensorboardCallback(BaseCallback):
     def _on_step(self) -> bool:
         # Only log at episode boundaries (when env 0 is done)
         if self.training_env.env_method("check_if_done", indices=[0])[0]:
-            all_infos = self.training_env.get_attr("agent_stats")
-            all_final_infos = [stats[-1] for stats in all_infos]
+            all_final_infos = self.training_env.env_method("get_latest_stats")
             mean_infos, distributions = merge_dicts(all_final_infos)
 
             # Log mean and max stats across all parallel envs

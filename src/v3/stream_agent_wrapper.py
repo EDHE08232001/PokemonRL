@@ -84,5 +84,5 @@ class StreamWrapper(gym.Wrapper):
         """Establish WebSocket connection (silently fails if server unavailable)."""
         try:
             self.websocket = await websockets.connect(self.ws_address)
-        except:
+        except Exception:
             self.websocket = None

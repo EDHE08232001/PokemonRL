@@ -86,7 +86,7 @@ class RedGymEnv(Env):
         self.max_steps = config["max_steps"]
         self.save_video = config["save_video"]
         self.fast_video = config["fast_video"]
-        self.frame_stacks = 3  # grayscale frames stacked along channel dim
+        self.frame_stacks = 1  # single frame — LSTM handles temporal context
         self.explore_weight = (
             1 if "explore_weight" not in config else config["explore_weight"]
         )
@@ -141,7 +141,7 @@ class RedGymEnv(Env):
             event_names = json.load(f)
         self.event_names = event_names
 
-        self.output_shape = (72, 80, self.frame_stacks)  # grayscale, 3 stacked
+        self.output_shape = (72, 80, self.frame_stacks)  # grayscale, single frame
         self.coords_pad = 12  # half-size of local exploration map window
 
         self.action_space = spaces.Discrete(len(self.valid_actions))
@@ -371,7 +371,7 @@ class RedGymEnv(Env):
                 self.world_graph, self.root_node, current_node
             )
         except (nx.NodeNotFound, nx.NetworkXNoPath):
-            self.graph_distance = 0
+            self.graph_distance = 255  # unreachable — signal with max distance, not 0
 
     # ------------------------------------------------------------------ #
     #  Emulator & Input                                                   #
@@ -420,6 +420,9 @@ class RedGymEnv(Env):
                 "graph_distance": self.graph_distance,
             }
         )
+        # Cap agent_stats to prevent unbounded memory growth (~82MB per env at end of episode)
+        if len(self.agent_stats) > 100:
+            self.agent_stats = self.agent_stats[-100:]
 
     # ------------------------------------------------------------------ #
     #  Video Recording                                                    #
@@ -678,10 +681,11 @@ class RedGymEnv(Env):
         """
         state_scores = {
             "event": self.reward_scale * self.update_max_event_rew() * 4,
+            "level": self.reward_scale * self.get_levels_reward(),
             "heal": self.reward_scale * self.total_healing_rew * 10,
             "badge": self.reward_scale * self.get_badges() * 10,
             "explore": self.reward_scale * self.explore_weight * len(self.seen_coords) * 0.1,
-            "stuck": self.reward_scale * self.get_current_coord_count_reward() * -0.05,
+            "stuck": self.reward_scale * self.get_current_coord_count_reward() * -0.5,
             "semantic": self.reward_scale * self.semantic_reward,
         }
 

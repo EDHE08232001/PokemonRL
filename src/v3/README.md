@@ -9,7 +9,7 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
 | Feature | V2 | V3 |
 |---------|-----|-----|
 | **RL Algorithm** | PPO (`MultiInputPolicy`) | RecurrentPPO (`MultiInputLstmPolicy`) |
-| **Temporal Memory** | Recent actions buffer (3-step) | LSTM (128 hidden, 1 layer) |
+| **Temporal Memory** | Recent actions buffer (3-step) | LSTM (128 hidden, 1 layer); frame stacking reduced from 3 to 1 |
 | **Text Understanding** | None | RAM text hooking + Gen 1 hex decoding |
 | **Map Representation** | Flat coordinate counting | Coordinate counting + directed graph (NetworkX) |
 | **Warp Handling** | Implicit (coordinate jumps) | Explicit warp edge detection + discovery reward |
@@ -28,7 +28,8 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
 
 - **Policy**: `MultiInputLstmPolicy` — processes dict observations through CNN/MLP feature extractors, then feeds the combined features through an LSTM before the actor/critic heads.
 - **Config**: `lstm_hidden_size=128`, `n_lstm_layers=1` — kept lightweight to maintain high throughput with 64 parallel environments.
-- **Observation change**: The `recent_actions` key is removed from the observation dict since the LSTM natively captures action history in its hidden state.
+- **Hyperparameters**: `n_epochs=3` (up from 1, giving the value function more gradient steps per rollout), `gamma=0.995` (reduced from 0.997 to match the reward structure's effective horizon).
+- **Observation change**: The `recent_actions` key is removed from the observation dict since the LSTM natively captures action history in its hidden state. Frame stacking is reduced from 3 to 1 — the LSTM provides temporal context, making stacked frames redundant.
 
 ### 2. Semantic Exploration via RAM Text Hooking
 
@@ -56,8 +57,26 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
 **How it works**:
 1. **Node Tracking**: Every step, compute `current_node = (map_id, y, x)`. If it differs from `previous_node`, add a directed edge.
 2. **Warp Detection**: If the map ID changed between consecutive nodes, the edge is flagged as a "warp edge". Discovering a new map ID via a warp grants a **+2.0 intrinsic reward**.
-3. **Graph Distance**: Compute shortest path length from the root node (starting position in Pallet Town) to the current node. This integer distance is clamped to [0, 255] and fed into the observation as `graph_distance`.
+3. **Graph Distance**: Compute shortest path length from the root node (starting position in Pallet Town) to the current node. This integer distance is clamped to [0, 255] and fed into the observation as `graph_distance`. Unreachable nodes default to 255 (max distance) to distinguish them from the root node (distance 0).
 4. **Purpose**: The graph distance gives the agent a sense of topological progression — "how far am I from home through the map structure?" — independent of pixel coordinates.
+
+### Reward Structure
+
+V3's composite reward includes all V2 components plus new additions:
+
+| Component | Formula | Purpose |
+|-----------|---------|---------|
+| `event` | `reward_scale × max_event_flags × 4` | Story progress (event flags) |
+| `level` | `reward_scale × level_reward` | Party leveling (incentivizes battles) |
+| `heal` | `reward_scale × total_healing × 10` | Healing at Pokemon Centers |
+| `badge` | `reward_scale × badge_count × 10` | Gym badge collection |
+| `explore` | `reward_scale × explore_weight × unique_coords × 0.1` | Spatial exploration |
+| `stuck` | `reward_scale × -0.5` (if tile visited 600+ times) | Anti-oscillation penalty (10× stronger than V2) |
+| `semantic` | `reward_scale × semantic_reward` | +0.5 per new dialogue, +2.0 per new map via warp |
+
+### Memory Optimization
+
+`agent_stats` is capped to the most recent 100 entries per environment to prevent unbounded memory growth (previously accumulated ~82MB per env over a full episode).
 
 ---
 

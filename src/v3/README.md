@@ -46,7 +46,7 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
    - `0xF6–0xFF` → 0–9
    - `0x50` → String terminator
 3. **Novelty Check**: If the decoded string is >3 characters and hasn't been seen before, add it to `seen_dialogue` and grant a **+0.5 intrinsic reward**.
-4. **Observation**: The current text string is hashed (MD5) into an 8-byte `uint8` vector (`text_hash`) and included in the observation dict.
+4. **Observation**: The current text string is hashed (MD5) into an 8-byte `uint8` vector (`text_hash`) and included in the observation dict. The hash always reflects the **current** text buffer state — it is zeroed out when no valid text is on screen, preventing stale dialogue hashes from polluting the LSTM's temporal reasoning.
 
 ### 3. Topological Graph Navigation
 
@@ -57,7 +57,7 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
 **How it works**:
 1. **Node Tracking**: Every step, compute `current_node = (map_id, y, x)`. If it differs from `previous_node`, add a directed edge.
 2. **Warp Detection**: If the map ID changed between consecutive nodes, the edge is flagged as a "warp edge". Discovering a new map ID via a warp grants a **+2.0 intrinsic reward**.
-3. **Graph Distance**: Compute shortest path length from the root node (starting position in Pallet Town) to the current node. This integer distance is clamped to [0, 255] and fed into the observation as `graph_distance`. Unreachable nodes default to 255 (max distance) to distinguish them from the root node (distance 0).
+3. **Graph Distance**: Compute shortest path length from the root node (starting position in Pallet Town) to the current node. Distances are **cached** for O(1) lookup on subsequent steps — the cache is only invalidated when a new warp edge is discovered (which could create a shortcut). This integer distance is clamped to [0, 255] and fed into the observation as `graph_distance`. Unreachable nodes default to 255 (max distance) to distinguish them from the root node (distance 0).
 4. **Purpose**: The graph distance gives the agent a sense of topological progression — "how far am I from home through the map structure?" — independent of pixel coordinates.
 
 ### Reward Structure
@@ -77,6 +77,18 @@ V3's composite reward includes all V2 components plus new additions:
 ### Memory Optimization
 
 `agent_stats` is capped to the most recent 100 entries per environment to prevent unbounded memory growth (previously accumulated ~82MB per env over a full episode).
+
+### Performance & Bug Fixes
+
+The following issues were identified and resolved in the V3 environment:
+
+1. **Graph Distance Caching** — The `nx.shortest_path_length` call in `update_world_graph` was running a full O(V+E) BFS on every step across all 64 parallel environments. Distances from the root node are now cached in a dictionary for O(1) lookup. The cache is invalidated only when a new warp edge is discovered (which could create a shortcut path).
+
+2. **Stale Text Hash Fix** — The `current_text_hash` observation was only updated when *new* dialogue was discovered, causing the LSTM to receive a stale hash for thousands of steps after dialogue ended. The hash now always reflects the current text buffer state and is zeroed when no valid text is on screen.
+
+3. **Full Event Flag Range** — The event flag range was truncated at `0xD87E` (Rock Tunnel), missing late-game events like Seafoam Islands boulder puzzles (`0xD87F–0xD881`) and Beat Articuno (`0xD882`). Extended to `0xD886` to match the baseline environment's full range.
+
+4. **Redundant Screen Roll Removed** — `np.roll` on a single-frame stack (`frame_stacks=1`) is a no-op. Replaced with a direct array assignment.
 
 ---
 

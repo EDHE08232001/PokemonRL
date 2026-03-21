@@ -28,7 +28,7 @@ from v3.global_map import local_to_global, GLOBAL_MAP_SHAPE
 
 # Event flag memory range
 event_flags_start = 0xD747
-event_flags_end = 0xD87E  # expanded to cover SS Anne events
+event_flags_end = 0xD886  # full standard event range (Seafoam, Articuno, late game)
 museum_ticket = (0xD754, 0)
 
 # WRAM text buffer address and length (Gen 1)
@@ -224,6 +224,7 @@ class RedGymEnv(Env):
         self.discovered_maps = {m}
         self.root_node = self.previous_node  # Pallet Town starting position
         self.graph_distance = 0
+        self.distance_cache = {self.root_node: 0}
 
         # --- V3: Semantic reward accumulator (for step delta tracking) ---
         self.semantic_reward = 0.0
@@ -337,10 +338,16 @@ class RedGymEnv(Env):
         raw = self.read_text_buffer()
         text = decode_text(raw)
 
-        if len(text) > 3 and text not in self.seen_dialogue:
-            self.seen_dialogue.add(text)
-            self.semantic_reward += 0.5  # one-time intrinsic reward
+        # Always update the observation to reflect current screen state
+        if len(text) > 3:
             self.current_text_hash = text_to_obs_hash(text, self.text_hash_size)
+            # Only reward for newly discovered dialogue
+            if text not in self.seen_dialogue:
+                self.seen_dialogue.add(text)
+                self.semantic_reward += 0.5  # one-time intrinsic reward
+        else:
+            # Zero out the text hash when no valid text is on screen
+            self.current_text_hash = np.zeros(self.text_hash_size, dtype=np.uint8)
 
     # ------------------------------------------------------------------ #
     #  V3: Topological Graph Navigation                                   #
@@ -363,15 +370,23 @@ class RedGymEnv(Env):
                     self.discovered_maps.add(current_node[0])
                     self.semantic_reward += 2.0  # warp discovery bonus
 
+                # A warp could create a shortcut — invalidate cache
+                self.distance_cache = {self.root_node: 0}
+
             self.previous_node = current_node
 
-        # Update graph distance from root
-        try:
-            self.graph_distance = nx.shortest_path_length(
-                self.world_graph, self.root_node, current_node
-            )
-        except (nx.NodeNotFound, nx.NetworkXNoPath):
-            self.graph_distance = 255  # unreachable — signal with max distance, not 0
+        # O(1) cached lookup instead of O(V+E) graph traversal per step
+        if current_node in self.distance_cache:
+            self.graph_distance = self.distance_cache[current_node]
+        else:
+            try:
+                dist = nx.shortest_path_length(
+                    self.world_graph, self.root_node, current_node
+                )
+                self.distance_cache[current_node] = dist
+                self.graph_distance = dist
+            except (nx.NodeNotFound, nx.NetworkXNoPath):
+                self.graph_distance = 255  # unreachable — signal with max distance
 
     # ------------------------------------------------------------------ #
     #  Emulator & Input                                                   #
@@ -530,8 +545,7 @@ class RedGymEnv(Env):
         return repeat(out, 'h w -> (h h2) (w w2)', h2=2, w2=2)
 
     def update_recent_screens(self, cur_screen):
-        """Roll screen stack and insert new frame at position 0."""
-        self.recent_screens = np.roll(self.recent_screens, 1, axis=2)
+        """Directly overwrite the single frame channel (no roll needed with frame_stacks=1)."""
         self.recent_screens[:, :, 0] = cur_screen[:, :, 0]
 
     # ------------------------------------------------------------------ #

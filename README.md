@@ -151,6 +151,8 @@ V3 extends V2 with three new systems aimed at pushing the agent beyond pure spat
 2. **Semantic Text Rewards**: Hooks into Game Boy WRAM (`0xCF4B`) to read and decode the active text buffer using the Gen 1 character map. New unique dialogue strings grant a one-time +0.5 intrinsic reward, incentivizing NPC interaction and sign reading.
 3. **Topological Graph Navigation**: Builds a directed graph (`networkx.DiGraph`) of `(map_id, row, col)` nodes during exploration. Detects "warp edges" (door/teleport transitions between map IDs) and grants a +2.0 bonus for discovering new maps. The shortest-path distance from Pallet Town is fed into the observation as `graph_distance`.
 
+**Recent fixes**: Graph distance caching (O(1) vs O(V+E) per step), stale text hash cleanup for LSTM, full event flag range (0xD886), redundant screen roll removal. See [src/v3/README.md](src/v3/README.md) for details.
+
 **New dependencies**: `sb3-contrib`, `networkx`
 
 ```bash

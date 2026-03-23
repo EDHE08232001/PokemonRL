@@ -578,46 +578,40 @@ class RedGymEnv(Env):
         return done
 
     def save_and_print_info(self, done, obs):
-        """Print progress and save screenshots/videos on episode end."""
-        if self.print_rewards:
-            prog_string = f"step: {self.step_count:6d}"
-            for key, val in self.progress_reward.items():
-                prog_string += f" {key}: {val:5.2f}"
-            prog_string += f" sum: {self.total_reward:5.2f}"
-            print(f"\r{prog_string}", end="", flush=True)
+        """Save screenshots/videos on episode end (per-step printing removed for SLURM)."""
+        # Per-step printing removed: summary is now printed once per rollout
+        # by TensorboardCallback to avoid multi-GB .out files under SLURM.
 
-        if self.step_count % 50 == 0:
+        if self.step_count % 5000 == 0:
             plt.imsave(
                 self.s_path / Path(f"curframe_{self.instance_id}.jpeg"),
                 self.render(reduce_res=False)[:, :, 0],
             )
 
-        if self.print_rewards and done:
-            print("", flush=True)
-            if self.save_final_state:
-                fs_path = self.s_path / Path("final_states")
-                fs_path.mkdir(exist_ok=True)
-                plt.imsave(
-                    fs_path
-                    / Path(
-                        f"frame_r{self.total_reward:.4f}_{self.reset_count}_explore_map.jpeg"
-                    ),
-                    obs["map"][:, :, 0],
-                )
-                plt.imsave(
-                    fs_path
-                    / Path(
-                        f"frame_r{self.total_reward:.4f}_{self.reset_count}_full_explore_map.jpeg"
-                    ),
-                    self.explore_map,
-                )
-                plt.imsave(
-                    fs_path
-                    / Path(
-                        f"frame_r{self.total_reward:.4f}_{self.reset_count}_full.jpeg"
-                    ),
-                    self.render(reduce_res=False)[:, :, 0],
-                )
+        if done and self.save_final_state:
+            fs_path = self.s_path / Path("final_states")
+            fs_path.mkdir(exist_ok=True)
+            plt.imsave(
+                fs_path
+                / Path(
+                    f"frame_r{self.total_reward:.4f}_{self.reset_count}_explore_map.jpeg"
+                ),
+                obs["map"][:, :, 0],
+            )
+            plt.imsave(
+                fs_path
+                / Path(
+                    f"frame_r{self.total_reward:.4f}_{self.reset_count}_full_explore_map.jpeg"
+                ),
+                self.explore_map,
+            )
+            plt.imsave(
+                fs_path
+                / Path(
+                    f"frame_r{self.total_reward:.4f}_{self.reset_count}_full.jpeg"
+                ),
+                self.render(reduce_res=False)[:, :, 0],
+            )
 
         if self.save_video and done:
             self.full_frame_writer.close()

@@ -17,5 +17,10 @@ cd $HOME/PokemonRL
 # Activate your virtual environment
 source $HOME/PokemonRL/v3env/local/bin/activate
 
-# Run the V3 training script loop
+# ── Pre-run cleanup ───────────────────────────────────────────────────────────
+# Prunes curframe snapshots, old checkpoints, old final_states, and old logs
+# before training starts to prevent disk quota failures (50GB limit).
+bash $HOME/PokemonRL/pre_run_v3.sh
+
+# ── Run the V3 training script loop ──────────────────────────────────────────
 bash src/v3/go_forever.sh

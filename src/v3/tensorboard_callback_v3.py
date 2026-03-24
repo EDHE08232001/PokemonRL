@@ -183,13 +183,15 @@ class TensorboardCallback(BaseCallback):
             self.logger.record("v3/mean_maps_discovered", np.mean(maps_discovered))
             self.logger.record("v3/max_maps_discovered", max(maps_discovered))
 
-            # Print clean summary table to stdout (once per rollout, before SB3 update box)
-            elapsed = time.time() - self._start_time if self._start_time else 0.0
-            summary = _format_env_summary(all_final_infos, self.num_timesteps, elapsed)
-            if summary:
-                print(summary, flush=True)
-
         return True
+
+    def _on_rollout_end(self) -> None:
+        """Print env summary table after every rollout (before SB3 update box)."""
+        all_stats = self.training_env.env_method("get_latest_stats")
+        elapsed = time.time() - self._start_time if self._start_time else 0.0
+        summary = _format_env_summary(all_stats, self.num_timesteps, elapsed)
+        if summary:
+            print(summary, flush=True)
 
     def _on_training_end(self):
         if self.writer:

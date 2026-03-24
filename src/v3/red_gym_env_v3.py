@@ -695,6 +695,7 @@ class RedGymEnv(Env):
             "explore": self.reward_scale * self.explore_weight * len(self.seen_coords) * 0.1,
             "stuck": self.reward_scale * self.get_current_coord_count_reward() * -0.5,
             "semantic": self.reward_scale * self.semantic_reward,
+            "party": self.reward_scale * self.get_party_size_reward() * 2.0,
         }
 
         return state_scores
@@ -711,6 +712,10 @@ class RedGymEnv(Env):
         )
         self.max_opponent_level = max(self.max_opponent_level, opponent_level)
         return self.max_opponent_level
+
+    def get_party_size_reward(self):
+        """Reward for catching pokemon. Reads party count (1–6) from 0xD163."""
+        return self.read_m(0xD163)
 
     def update_max_event_rew(self):
         """Track max event reward (monotonically increasing)."""

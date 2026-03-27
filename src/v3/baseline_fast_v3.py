@@ -134,7 +134,8 @@ if __name__ == "__main__":
 
     print(model.policy)
 
-    model.learn(total_timesteps=(ep_length) * num_cpu * 10000, callback=CallbackList(callbacks), tb_log_name="poke_rppo")
+    # changed timesteps to around 10.5M steps for clean exit
+    model.learn(total_timesteps=ep_length * num_cpu, callback=CallbackList(callbacks), tb_log_name="poke_rppo")
 
     if use_wandb_logging:
         run.finish()

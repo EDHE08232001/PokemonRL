@@ -363,7 +363,6 @@ python src/baseline/run_pretrained_interactive.py
 PokemonRL/
 ├── main.py                      # Entry point — interactive menu to train or run models
 ├── pyproject.toml               # Python package config with optional dependency extras
-├── VisualizeProgress.ipynb      # Jupyter notebook for training visualization
 ├── ROM_INPUT/                   # Place PokemonRed.gb here (user-supplied, gitignored)
 │   └── PokemonRed.gb           # ← YOUR ROM FILE GOES HERE
 ├── saves/                       # Game Boy save states for initializing training episodes
@@ -421,7 +420,7 @@ PokemonRL/
 │       ├── stream_agent_wrapper.py  # WebSocket live map streaming
 │       ├── events.json          # Event flag names
 │       ├── map_data.json        # Map region coordinate data
-│       ├── go_forever.sh        # Continuous training wrapper script
+│       ├── go_one_episode.sh
 │       ├── README.md            # V3 architecture documentation
 │       └── runs/                # ← CREATED AT RUNTIME (checkpoints, TensorBoard, screenshots)
 │           ├── poke_<steps>_steps.zip   # Checkpoints w/ LSTM state (place pre-trained model here)

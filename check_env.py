@@ -87,7 +87,7 @@ V3_FILES = [
     "src/v3/baseline_fast_v3.py",
     "src/v3/red_gym_env_v3.py",
     "src/v3/tensorboard_callback_v3.py",
-    "src/v3/go_forever.sh",
+    "src/v3/go_one_episode.sh",
     "src/v3/map_data.json",
     "src/v3/events.json",
     "train_v3.sh",
@@ -418,13 +418,13 @@ def check_v3_save_final_state_runtime():
     return failures
 
 
-def check_v3_go_forever_sh():
+def check_v3_go_one_episode():
     """
     Verify go_forever.sh uses a safe glob to find checkpoints,
     not the old ls -l column parsing that grabbed timestamps.
     """
-    header("V3 Fix — go_forever.sh checkpoint glob safety")
-    sh_path = PROJECT_ROOT / "src/v3/go_forever.sh"
+    header("V3 Fix — go_one_episode.sh checkpoint glob safety")
+    sh_path = PROJECT_ROOT / "src/v3/go_one_episode.sh"
     if not sh_path.exists():
         warn(f"Cannot check — {sh_path} not found")
         return 0
@@ -435,24 +435,24 @@ def check_v3_go_forever_sh():
     # Good: globs directly on *.zip files
     if re.search(r'ls\s+-t\s+"?\$RUNS_DIR/\*\.zip"?', src) or \
        re.search(r'ls\s+-t\s+.*\*\.zip', src):
-        ok("go_forever.sh globs *.zip files directly  ✓")
+        ok("go_one_episode.sh globs *.zip files directly  ✓")
     else:
         warn("go_forever.sh may not be using a direct *.zip glob — "
              "verify checkpoint detection manually.")
 
     # Bad: old column-based parsing via awk '{print $9}'
     if "awk '{print $9}'" in src or 'awk "{print $9}"' in src:
-        fail("go_forever.sh still uses 'awk {print $9}' — "
+        fail("go_one_episode.sh still uses 'awk {print $9}' — "
              "this grabs timestamps instead of filenames on Morningstar!")
         failures += 1
     else:
-        ok("go_forever.sh does NOT use dangerous awk column parsing  ✓")
+        ok("go_one_episode.sh does NOT use dangerous awk column parsing  ✓")
 
     # Check sed strip of .zip extension
     if "sed 's/\\.zip$//'" in src or "sed 's/.zip$//'" in src:
-        ok("go_forever.sh strips .zip extension correctly  ✓")
+        ok("go_one_episode.sh strips .zip extension correctly  ✓")
     else:
-        warn("Could not confirm .zip extension stripping in go_forever.sh — check manually.")
+        warn("Could not confirm .zip extension stripping in go_one_episode.sh — check manually.")
 
     return failures
 
@@ -599,7 +599,7 @@ def run_checks(versions):
         total_failures += check_v3_save_and_print_info_called()
         total_failures += check_v3_save_final_state_config()
         total_failures += check_v3_save_final_state_runtime()
-        total_failures += check_v3_go_forever_sh()
+        total_failures += check_v3_go_one_episode()
         total_failures += check_v3_train_sh()
         total_failures += check_v3_tensorboard_callback()
 

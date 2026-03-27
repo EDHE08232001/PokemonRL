@@ -110,13 +110,15 @@ if __name__ == "__main__":
     )
 
     if exists(file_name + ".zip"):
-        print("\nloading checkpoint")
-        model = RecurrentPPO.load(file_name, env=env)
+        print(f"\nloading checkpoint: {file_name}")
+        print(f"  (will train one episode = {ep_length * num_cpu:,} more timesteps)")
+        model = RecurrentPPO.load(file_name, env=env, tensorboard_log=sess_path)
         model.n_steps = train_steps_batch
         model.n_envs = num_cpu
         model.rollout_buffer.buffer_size = train_steps_batch
         model.rollout_buffer.n_envs = num_cpu
         model.rollout_buffer.reset()
+        print(f"  Resuming from timestep {model.num_timesteps:,}")
     else:
         # RecurrentPPO with MultiInputLstmPolicy: 1 epoch per update, batch size 512
         model = RecurrentPPO(
@@ -134,8 +136,24 @@ if __name__ == "__main__":
 
     print(model.policy)
 
-    # changed timesteps to around 10.5M steps for clean exit
-    model.learn(total_timesteps=ep_length * num_cpu, callback=CallbackList(callbacks), tb_log_name="poke_rppo")
+    # One episode worth of experience across all envs.
+    # With reset_num_timesteps=False the step counter continues from the
+    # checkpoint, so total_timesteps must be an *absolute* target, not a delta.
+    one_episode = ep_length * num_cpu
+    target_timesteps = model.num_timesteps + one_episode
+
+    model.learn(
+        total_timesteps=target_timesteps,
+        callback=CallbackList(callbacks),
+        tb_log_name="poke_rppo",
+        reset_num_timesteps=False,
+    )
+
+    # Save a final checkpoint so the very last weights are always on disk,
+    # even if CheckpointCallback's save_freq didn't align with the end.
+    final_path = sess_path / f"poke_{model.num_timesteps}_steps"
+    model.save(final_path)
+    print(f"[DONE] Saved final checkpoint → {final_path}")
 
     if use_wandb_logging:
         run.finish()

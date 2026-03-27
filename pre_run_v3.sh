@@ -2,7 +2,7 @@
 # =============================================================================
 # pre_run_v3.sh — Pre-run cleanup for PokemonRL V3 training
 #
-# Run automatically by train_v3.sh before go_forever.sh starts.
+# Run automatically by train_v3.sh before go_one_episode.sh starts.
 # Prevents disk quota failures (50GB limit) by pruning large output files
 # that accumulate across training runs.
 #
@@ -13,7 +13,7 @@
 #   - *.err / *.out       : old SLURM logs from previous jobs (keeps last 5)
 #
 # What it NEVER touches:
-#   - The 3 most recent checkpoints (needed for go_forever.sh to resume)
+#   - The 3 most recent checkpoints (needed for go_one_episode.sh to resume)
 #   - TensorBoard event files (needed for analysis)
 #   - Recent final_states/ images (last 2 days kept for inspection)
 # =============================================================================
@@ -84,7 +84,7 @@ else
 fi
 
 # ── 3. Keep only the 3 most recent checkpoints ───────────────────────────────
-# go_forever.sh only needs the most recent one. We keep 3 as a safety buffer
+# go_one_episode.sh only needs the most recent one. We keep 3 as a safety buffer
 # in case the latest checkpoint is corrupt.
 CHECKPOINT_COUNT=$(find "$RUNS_DIR" -maxdepth 1 -name "poke_*.zip" 2>/dev/null | wc -l)
 if [ "$CHECKPOINT_COUNT" -gt 3 ]; then

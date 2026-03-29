@@ -73,6 +73,7 @@ V3's composite reward includes all V2 components plus new additions:
 | `explore` | `reward_scale × explore_weight × unique_coords × 0.1` | Spatial exploration |
 | `stuck` | `reward_scale × -0.5` (if tile visited 600+ times) | Anti-oscillation penalty (10× stronger than V2) |
 | `semantic` | `reward_scale × semantic_reward` | +0.5 per new dialogue, +2.0 per new map via warp |
+| `party` | `reward_scale × party_size_reward × 2.0` | Party size from `0xD163`; incentivizes catching pokemon |
 
 ### Memory Optimization
 
@@ -139,7 +140,7 @@ The script **auto-detects the most recent checkpoint** in `src/v3/runs/`. It pro
 
 - The latest checkpoint `.zip` (with LSTM state) remains in `src/v3/runs/`
 - Episode screenshots are saved to `final_states/`
-- Use `go_forever.sh` for unattended long-term training that auto-resumes after interruption
+- Use `go_v3.sh` for unattended long-term training that auto-resumes after interruption
 - Resume manually: `echo "runs/poke_XXXXXXX_steps" | python src/v3/baseline_fast_v3.py`
 
 ---
@@ -207,13 +208,21 @@ This will:
 
 The interactive script properly maintains LSTM hidden states across steps, passing `state` and `episode_start` to `model.predict()` for correct recurrent inference.
 
-### Continuous Training
+### Single Episode
 
 ```bash
-src/v3/go_forever.sh
+src/v3/go_one_episode.sh
 ```
 
-This loops indefinitely, finding the latest checkpoint and resuming training.
+Runs one episode: finds the latest checkpoint in `runs/` and resumes, or starts fresh if none exists. Used by `train_v3.sh` for SLURM job submissions.
+
+### Multi-Episode Loop
+
+```bash
+src/v3/go_v3.sh [N]
+```
+
+Runs `N` episodes back-to-back (defaults to 1 if no argument). Each iteration finds the latest checkpoint and resumes, enabling unattended long-term training. Example: `src/v3/go_v3.sh 10` runs 10 episodes in sequence.
 
 ### Monitor Training
 
@@ -244,7 +253,7 @@ All other dependencies are shared with V2 (see `pyproject.toml` at the project r
 
 ```
 src/v3/
-├── red_gym_env_v3.py              # Gym environment (LSTM obs, text hooks, graph nav)
+├── red_gym_env_v3.py              # Gym environment (LSTM obs, text hooks, graph nav, party reward)
 ├── baseline_fast_v3.py            # Training script (RecurrentPPO, 64 parallel envs)
 ├── run_pretrained_interactive.py  # Interactive play with trained model (LSTM state tracking)
 ├── tensorboard_callback_v3.py     # TensorBoard logging (+ V3 metrics)
@@ -252,6 +261,7 @@ src/v3/
 ├── stream_agent_wrapper.py        # WebSocket live map streaming (shared with V2)
 ├── events.json                    # Event flag names
 ├── map_data.json                  # Map region coordinate data
-├── go_forever.sh                  # Continuous training wrapper
+├── go_one_episode.sh              # Single-episode training wrapper (used by train_v3.sh)
+├── go_v3.sh                       # Multi-episode loop wrapper (go_v3.sh [N], defaults to 1)
 └── README.md                      # This file
 ```

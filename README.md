@@ -151,7 +151,9 @@ V3 extends V2 with three new systems aimed at pushing the agent beyond pure spat
 2. **Semantic Text Rewards**: Hooks into Game Boy WRAM (`0xCF4B`) to read and decode the active text buffer using the Gen 1 character map. New unique dialogue strings grant a one-time +0.5 intrinsic reward, incentivizing NPC interaction and sign reading.
 3. **Topological Graph Navigation**: Builds a directed graph (`networkx.DiGraph`) of `(map_id, row, col)` nodes during exploration. Detects "warp edges" (door/teleport transitions between map IDs) and grants a +2.0 bonus for discovering new maps. The shortest-path distance from Pallet Town is fed into the observation as `graph_distance`.
 
-**Recent fixes**: Graph distance caching (O(1) vs O(V+E) per step), stale text hash cleanup for LSTM, full event flag range (0xD886), redundant screen roll removal. See [src/v3/README.md](src/v3/README.md) for details.
+**Recent additions**: Party size reward (`reward_scale × party_size_reward × 2.0`) reads party count from WRAM `0xD163`, incentivizing the agent to catch pokemon. Checkpoint resume fixes ensure TensorBoard step counts continue across SLURM jobs (`reset_num_timesteps=False`) and a final checkpoint is always saved at training end. Two training wrapper scripts: `go_one_episode.sh` (single episode, used by `train_v3.sh`) and `go_v3.sh [N]` (multi-episode loop).
+
+**Earlier fixes**: Graph distance caching (O(1) vs O(V+E) per step), stale text hash cleanup for LSTM, full event flag range (0xD886), redundant screen roll removal. See [src/v3/README.md](src/v3/README.md) for details.
 
 **New dependencies**: `sb3-contrib`, `networkx`
 
@@ -183,6 +185,7 @@ python src/v3/baseline_fast_v3.py
 | **Level encoding** | Raw level sum in reward | Fourier-encoded in observation | Fourier-encoded in observation |
 | **Text understanding** | None | None | Gen 1 WRAM text decoding + reward |
 | **Map structure** | None | Flat exploration map | Exploration map + directed graph |
+| **Pokemon catching** | No | No | Party size reward (×2.0 from `0xD163`) |
 | **PyBoy version** | v1.x (`botsupport_manager`, `get_memory_value`) | v2.x (`screen.ndarray`, `memory[]`) | v2.x (`screen.ndarray`, `memory[]`) |
 | **Result** | Reaches ~Cerulean City | Reaches Cerulean City, trains faster | Under development |
 
@@ -420,7 +423,8 @@ PokemonRL/
 │       ├── stream_agent_wrapper.py  # WebSocket live map streaming
 │       ├── events.json          # Event flag names
 │       ├── map_data.json        # Map region coordinate data
-│       ├── go_one_episode.sh
+│       ├── go_one_episode.sh    # Single-episode wrapper (used by train_v3.sh)
+│       ├── go_v3.sh             # Multi-episode loop wrapper (go_v3.sh [N])
 │       ├── README.md            # V3 architecture documentation
 │       └── runs/                # ← CREATED AT RUNTIME (checkpoints, TensorBoard, screenshots)
 │           ├── poke_<steps>_steps.zip   # Checkpoints w/ LSTM state (place pre-trained model here)

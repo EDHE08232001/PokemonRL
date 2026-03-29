@@ -583,6 +583,21 @@ pip install .[ray]         # Ray RLlib experiment
 
 ---
 
+## Bug Fixes
+
+### PyBoy Sound Logger — SLURM Output Inflation (fixed)
+
+**Problem**: PyBoy's sound module unconditionally emits `CRITICAL Buffer overrun! 1602 of 1602` to stdout on every emulator tick. With 64 parallel SubprocVecEnv environments running for 20+ hours, this inflated a single SLURM `.out` file to **166 GB**, nearly exhausting a 50 GB disk quota.
+
+**Fix**: Added `logging.getLogger("pyboy").setLevel(logging.CRITICAL + 1)` in two places per entry point:
+1. At module top-level (silences the main process).
+2. Inside each `_init()` closure (silences each SubprocVecEnv subprocess, which has its own interpreter state).
+3. As defence-in-depth: also applied in `RedGymEnv.__init__()` so any direct instantiation is covered.
+
+Files changed: `src/v3/baseline_fast_v3.py`, `src/v3/run_pretrained_interactive.py`, `src/v3/red_gym_env_v3.py`, `src/v2/baseline_fast_v2.py`, `src/baseline/run_baseline_parallel_fast.py`.
+
+---
+
 ## Related Work
 
 - [Pokemon Red via Reinforcement Learning (arXiv)](https://arxiv.org/abs/2502.19920)

@@ -8,11 +8,16 @@ When AI is disabled, the emulator just ticks (manual play via SDL2 window).
 
 import sys
 import os
+import logging
 from os.path import exists
 from pathlib import Path
 import uuid
 import time
 import glob
+
+# Silence PyBoy's sound module — it emits CRITICAL "Buffer overrun!" every tick,
+# which inflates SLURM .out files to 100+ GB over a long training run.
+logging.getLogger("pyboy").setLevel(logging.CRITICAL + 1)
 
 # Resolve absolute paths relative to this script's location
 _SCRIPT_DIR = Path(__file__).resolve().parent

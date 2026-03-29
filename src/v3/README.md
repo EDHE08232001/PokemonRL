@@ -238,6 +238,22 @@ V3 adds these TensorBoard metrics under `v3/`:
 
 ---
 
+## Bug Fixes
+
+### PyBoy Sound Logger — SLURM Output Inflation (fixed)
+
+**Problem**: PyBoy emits `CRITICAL Buffer overrun! 1602 of 1602` on every emulator tick via Python's `logging` module. With 64 parallel SubprocVecEnv workers running for 20+ hours, this inflated SLURM `.out` files to **166 GB**.
+
+**Root cause**: PyBoy's sound module logs at `CRITICAL` level unconditionally; Python's logging defaults to propagating all levels. Subprocesses created by SubprocVecEnv each spawn a fresh Python interpreter, so a top-level suppression in the parent process is not inherited — the suppression must be repeated inside the `_init()` closure.
+
+**Fix applied**:
+- `baseline_fast_v3.py`: `logging.getLogger("pyboy").setLevel(logging.CRITICAL + 1)` added at module top-level **and** inside `_init()`.
+- `red_gym_env_v3.py`: same line added at the top of `RedGymEnv.__init__()` as defence-in-depth.
+
+**Verification**: Run a short test (`ep_length=100`, `num_cpu=2`) and confirm no "Buffer overrun" lines appear in the `.out` file.
+
+---
+
 ## New Dependencies
 
 | Package | Version | Purpose |

@@ -6,9 +6,14 @@ Uses KNN frame-based exploration. Supports checkpoint resumption and W&B logging
 """
 
 import sys
+import logging
 from os.path import exists
 from pathlib import Path
 import uuid
+
+# Silence PyBoy's sound module — it emits CRITICAL "Buffer overrun!" every tick,
+# which inflates SLURM .out files to 100+ GB over a long training run.
+logging.getLogger("pyboy").setLevel(logging.CRITICAL + 1)
 
 # Resolve absolute paths relative to this script's location
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -30,6 +35,9 @@ from tensorboard_callback import TensorboardCallback
 def make_env(rank, env_conf, seed=0):
     """Create a closure that initializes a RedGymEnv for SubprocVecEnv."""
     def _init():
+        # Re-silence in each subprocess spawned by SubprocVecEnv.
+        import logging
+        logging.getLogger("pyboy").setLevel(logging.CRITICAL + 1)
         env = RedGymEnv(env_conf)
         env.reset(seed=(seed + rank))
         return env

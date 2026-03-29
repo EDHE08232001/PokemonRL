@@ -77,6 +77,11 @@ class RedGymEnv(Env):
     """
 
     def __init__(self, config=None):
+        # Suppress PyBoy's noisy "Buffer overrun!" CRITICAL log that fires every
+        # emulator tick and can inflate SLURM .out files to 100+ GB.
+        import logging
+        logging.getLogger("pyboy").setLevel(logging.CRITICAL + 1)
+
         self.s_path = config["session_path"]
         self.save_final_state = config["save_final_state"]
         self.print_rewards = config["print_rewards"]

@@ -81,6 +81,7 @@ class RedGymEnv(Env):
         # emulator tick and can inflate SLURM .out files to 100+ GB.
         import logging
         logging.getLogger("pyboy").setLevel(logging.CRITICAL + 1)
+        logging.getLogger("pyboy.core.sound").setLevel(logging.CRITICAL + 1)
 
         self.s_path = config["session_path"]
         self.save_final_state = config["save_final_state"]
@@ -175,6 +176,7 @@ class RedGymEnv(Env):
         self.pyboy = PyBoy(
             config["gb_path"],
             window=head,
+            sound_emulated=False,
         )
 
         if not config["headless"]:

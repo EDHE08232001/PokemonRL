@@ -19,6 +19,7 @@ from pathlib import Path
 # Silence PyBoy's sound module — it emits CRITICAL "Buffer overrun!" every tick,
 # which inflates SLURM .out files to 100+ GB over a long training run.
 logging.getLogger("pyboy").setLevel(logging.CRITICAL + 1)
+logging.getLogger("pyboy.core.sound").setLevel(logging.CRITICAL + 1)
 
 # Resolve absolute paths relative to this script's location
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -47,6 +48,7 @@ def make_env(rank, env_conf, seed=0):
         # own interpreter state, so the top-level suppression doesn't carry over).
         import logging
         logging.getLogger("pyboy").setLevel(logging.CRITICAL + 1)
+        logging.getLogger("pyboy.core.sound").setLevel(logging.CRITICAL + 1)
         env = StreamWrapper(
             RedGymEnv(env_conf),
             stream_metadata={

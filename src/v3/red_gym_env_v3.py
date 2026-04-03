@@ -282,6 +282,10 @@ class RedGymEnv(Env):
         """Return only the most recent stats dict to save multiprocessing pipe memory."""
         return self.agent_stats[-1] if len(self.agent_stats) > 0 else {}
 
+    def close(self):
+        self.pyboy.stop(save=False)
+        super().close()
+
     def step(self, action):
         """Execute one agent step: act, observe, compute reward."""
         if self.save_video and self.step_count == 0:

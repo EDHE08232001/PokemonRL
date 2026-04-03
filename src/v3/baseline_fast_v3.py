@@ -166,5 +166,7 @@ if __name__ == "__main__":
     model.save(final_path)
     print(f"[DONE] Saved final checkpoint → {final_path}")
 
+    env.close()
+
     if use_wandb_logging:
         run.finish()

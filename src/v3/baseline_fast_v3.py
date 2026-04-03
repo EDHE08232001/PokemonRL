@@ -147,17 +147,23 @@ if __name__ == "__main__":
 
     print(model.policy)
 
+    reset_timesteps_num = False
+
     # One episode worth of experience across all envs.
-    # With reset_num_timesteps=False the step counter continues from the
-    # checkpoint, so total_timesteps must be an *absolute* target, not a delta.
+    # With reset_num_timesteps=False, SB3 internally adds model.num_timesteps to
+    # whatever you pass, so pass just the delta (one_episode). DO NOT ADD
+    # model.num_timesteps yourself - that causes double-counting and runs 2x -3x too long.
     one_episode = ep_length * num_cpu
-    target_timesteps = model.num_timesteps + one_episode
+    target_timesteps = model.num_timesteps + one_episode if reset_timesteps_num else one_episode
+
+    print("One Episode is ", one_episode)
+    print("Target Timesteps are ", target_timesteps)
 
     model.learn(
         total_timesteps=target_timesteps,
         callback=CallbackList(callbacks),
         tb_log_name="poke_rppo",
-        reset_num_timesteps=False,
+        reset_num_timesteps=reset_timesteps_num,
     )
 
     # Save a final checkpoint so the very last weights are always on disk,

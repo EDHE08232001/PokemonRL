@@ -70,6 +70,29 @@ class StreamWrapper(gym.Wrapper):
 
         return self.env.step(action)
 
+    def close(self):
+        """
+        Shut down the WebSocket and Event Loop so the sub-processes can exit cleanly!!! 
+        """
+        if self.websocket is not None:
+            try:
+                self.loop.run_until_complete(self.websocket.close())
+            except Exception:
+                pass
+            self.websocket = None
+        try:
+            pending = asyncio.all_tasks(self.loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                self.loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        except Exception:
+            pass
+        if not self.loop.is_closed():
+            self.loop.close()
+        super().close()
+    
+
     async def broadcast_ws_message(self, message):
         """Send a message over WebSocket, reconnecting if needed."""
         if self.websocket is None:

@@ -23,4 +23,4 @@ source $HOME/PokemonRL/v3env/local/bin/activate
 bash $HOME/PokemonRL/pre_run_v3.sh
 
 # ── Run the V3 training script loop ──────────────────────────────────────────
-bash src/v3/go_one_episode.sh
+bash src/v3/go_one_training_run.sh

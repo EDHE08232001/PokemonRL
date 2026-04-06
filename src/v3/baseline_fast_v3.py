@@ -126,21 +126,29 @@ if __name__ == "__main__":
         model = RecurrentPPO.load(file_name, env=env, tensorboard_log=sess_path)
         model.n_steps = train_steps_batch
         model.n_envs = num_cpu
+        # Apply updated hyperparameters to loaded model (not preserved in checkpoint)
+        model.n_epochs = 1
+        model.gamma = 0.997
+        model.ent_coef = 0.02
+        model.vf_coef = 0.75
+        model.clip_range = 0.15
         model.rollout_buffer.buffer_size = train_steps_batch
         model.rollout_buffer.n_envs = num_cpu
         model.rollout_buffer.reset()
         print(f"  Resuming from timestep {model.num_timesteps:,}")
     else:
-        # RecurrentPPO with MultiInputLstmPolicy: 1 epoch per update, batch size 512
+        # RecurrentPPO with MultiInputLstmPolicy
         model = RecurrentPPO(
             "MultiInputLstmPolicy",
             env,
             verbose=1,
             n_steps=train_steps_batch,
             batch_size=512,
-            n_epochs=3,
-            gamma=0.995,
-            ent_coef=0.01,
+            n_epochs=1,
+            gamma=0.997,
+            ent_coef=0.02,
+            vf_coef=0.75,
+            clip_range=0.15,
             policy_kwargs=policy_kwargs,
             tensorboard_log=sess_path,
         )

@@ -444,6 +444,7 @@ class RedGymEnv(Env):
                 "graph_edges": self.world_graph.number_of_edges(),
                 "maps_discovered": len(self.discovered_maps),
                 "graph_distance": self.graph_distance,
+                "max_opponent_level": self.max_opponent_level,
             }
         )
         # Cap agent_stats to prevent unbounded memory growth (~82MB per env at end of episode)

@@ -36,7 +36,7 @@ from v3.red_gym_env_v3 import RedGymEnv
 from v3.stream_agent_wrapper import StreamWrapper
 from sb3_contrib import RecurrentPPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
-from stable_baselines3.common.utils import set_random_seed
+from stable_baselines3.common.utils import set_random_seed, get_schedule_fn
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from v3.tensorboard_callback_v3 import TensorboardCallback
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         model.gamma = 0.997
         model.ent_coef = 0.02
         model.vf_coef = 0.75
-        model.clip_range = 0.15
+        model.clip_range = get_schedule_fn(0.15)
         model.rollout_buffer.buffer_size = train_steps_batch
         model.rollout_buffer.n_envs = num_cpu
         model.rollout_buffer.reset()

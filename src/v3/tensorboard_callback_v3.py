@@ -183,6 +183,10 @@ class TensorboardCallback(BaseCallback):
             self.logger.record("v3/mean_maps_discovered", np.mean(maps_discovered))
             self.logger.record("v3/max_maps_discovered", max(maps_discovered))
 
+            op_levels = [info.get("max_opponent_level", 0) for info in all_final_infos]
+            self.logger.record("v3/mean_op_level", np.mean(op_levels))
+            self.logger.record("v3/max_op_level", max(op_levels))
+
         return True
 
     def _on_rollout_end(self) -> None:

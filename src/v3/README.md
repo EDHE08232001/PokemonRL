@@ -28,7 +28,7 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
 
 - **Policy**: `MultiInputLstmPolicy` — processes dict observations through CNN/MLP feature extractors, then feeds the combined features through an LSTM before the actor/critic heads.
 - **Config**: `lstm_hidden_size=128`, `n_lstm_layers=1` — kept lightweight to maintain high throughput with 64 parallel environments.
-- **Hyperparameters**: `n_epochs=3` (up from 1, giving the value function more gradient steps per rollout), `gamma=0.995` (reduced from 0.997 to match the reward structure's effective horizon).
+- **Hyperparameters**: `n_epochs=1` (matching the stable V2 setting; multiple epochs with LSTM causes value function instability — see [Performance Regression post-mortem](#performance-regression-at-63m84m-steps-fixed) below), `gamma=0.997` (restoring the V2 value for a longer effective planning horizon), `ent_coef=0.02` (raised to resist entropy collapse), `vf_coef=0.75` (raised to prioritize critic accuracy), `clip_range=0.15` (tightened to prevent large policy swings).
 - **Observation change**: The `recent_actions` key is removed from the observation dict since the LSTM natively captures action history in its hidden state. Frame stacking is reduced from 3 to 1 — the LSTM provides temporal context, making stacked frames redundant.
 
 ### 2. Semantic Exploration via RAM Text Hooking
@@ -69,7 +69,8 @@ V3's composite reward includes all V2 components plus new additions:
 | `event` | `reward_scale × max_event_flags × 4` | Story progress (event flags) |
 | `level` | `reward_scale × level_reward` | Party leveling (incentivizes battles) |
 | `heal` | `reward_scale × total_healing × 10` | Healing at Pokemon Centers |
-| `badge` | `reward_scale × badge_count × 10` | Gym badge collection |
+| `badge` | `reward_scale × badge_count × 25` | Gym badge collection (multiplier raised from 10 to 25 to be competitive with explore reward) |
+| `op_lvl` | `reward_scale × max_opponent_level × 0.2` | Monotonically increasing reward for fighting stronger opponents; incentivizes engaging gym trainers/leaders |
 | `explore` | `reward_scale × explore_weight × unique_coords × 0.1` | Spatial exploration |
 | `stuck` | `reward_scale × -0.5` (if tile visited 600+ times) | Anti-oscillation penalty (10× stronger than V2) |
 | `semantic` | `reward_scale × semantic_reward` | +0.5 per new dialogue, +2.0 per new map via warp |
@@ -235,6 +236,91 @@ V3 adds these TensorBoard metrics under `v3/`:
 - `v3/mean_dialogue_count` / `v3/max_dialogue_count` — unique dialogue strings discovered
 - `v3/mean_graph_nodes` / `v3/max_graph_nodes` — topological graph size
 - `v3/mean_maps_discovered` / `v3/max_maps_discovered` — unique map IDs reached via warps
+
+---
+
+## Training Post-Mortems
+
+### Performance Regression at 63M–84M Steps (fixed)
+
+**Observed**: During training Job 4870–4873 (63M–84M steps), the agent peaked then regressed ~18% in reward despite more training. After 84M steps, 64 parallel environments, 1,600+ unique tiles explored, and Pokémon at level 18–20 — **zero gym badges earned**.
+
+#### What the Training Charts Showed
+
+- **Reward trajectory**: Catastrophic drop at ~73M steps, partial recovery but never returning to the 63M peak. Multiple similar drops visible at ~42M, ~52M, ~62M — each corresponding to a checkpoint restart where the agent had to re-learn from scratch.
+- **Explained variance**: Oscillating wildly between 0.1–0.8, averaging ~0.16. The value (critic) network was essentially useless.
+- **Entropy**: Monotonically declining from -1.94 → -1.62 across 84M steps — the agent was becoming progressively more deterministic.
+- **Clip fraction**: Doubled from 0.06 → 0.11. The agent was making increasingly large policy updates at the same time it was losing exploration capacity — the worst combination.
+- **Deaths per episode**: Spiked to 9 at each restart then declined — the agent was rapidly re-learning combat avoidance, not gym combat engagement.
+- **Exploration count**: Dropped to ~0 at each restart then quickly rebuilt to 1,500+ — exploration was fast but repetitive, not progressive.
+
+#### Root Cause Analysis
+
+**1. Value Network Collapse** (`n_epochs=3` + LSTM)
+
+With `n_epochs=3`, the same rollout batch is reused for 3 gradient passes. For a standard MLP policy this is fine. For an LSTM policy, passes 2 and 3 evaluate the value function against hidden states that were produced by an older version of the policy — the LSTM context is stale. The value function memorizes noise, produces bad advantage estimates, and the policy updates in the wrong direction. This created a downward spiral: bad values → bad advantages → bad policy updates → even worse values.
+
+**2. Entropy Collapse** (`ent_coef=0.01`, `clip_range=0.2`)
+
+`ent_coef=0.01` provides a small constant pressure toward entropy, but the policy gradient applies much stronger pressure toward determinism once the agent finds a locally rewarding strategy. With `clip_range=0.2`, each update could make large policy changes, accelerating the collapse. Once entropy falls, the agent stops exploring alternatives — it is committed to a local optimum.
+
+**3. Reward Imbalance — Badge Threshold Trap**
+
+The reward math was heavily skewed against gym battles:
+
+| Reward Source | Formula | Value at 84M steps |
+|---------------|---------|-------------------|
+| Exploration (1,600 tiles) | `0.5 × 0.25 × 1600 × 0.1` | **20.0** |
+| 1 Gym Badge | `0.5 × 1 × 10` | **5.0** |
+| Ratio | — | Badge = ¼ of explore reward |
+
+The agent was perfectly rational: exploration was simply 4× more profitable than winning a gym battle. Additionally, the `op_lvl` (opponent level) reward — which creates a dense signal for fighting progressively stronger opponents — had been **silently dropped** from V3's reward dict when V3 was written. The `update_max_op_level()` method existed and was initialized, but was never called from `get_game_state_reward()`. Without it, walking into a gym, collecting the +2.0 warp discovery bonus for the new map, and immediately leaving was more rewarding than staying to fight.
+
+#### Fixes Applied
+
+**File: `src/v3/red_gym_env_v3.py`**
+
+```python
+# BEFORE
+state_scores = {
+    ...
+    "badge": self.reward_scale * self.get_badges() * 10,
+    ...
+}
+
+# AFTER
+state_scores = {
+    ...
+    "badge": self.reward_scale * self.get_badges() * 25,       # 10 → 25
+    "op_lvl": self.reward_scale * self.update_max_op_level() * 0.2,  # re-enabled
+    ...
+}
+```
+
+**File: `src/v3/baseline_fast_v3.py`**
+
+```python
+# BEFORE
+model = RecurrentPPO(..., n_epochs=3, gamma=0.995, ent_coef=0.01)
+
+# AFTER
+model = RecurrentPPO(
+    ...,
+    n_epochs=1,       # was 3 — primary fix for value network instability
+    gamma=0.997,      # was 0.995 — restores V2 setting, extends horizon
+    ent_coef=0.02,    # was 0.01 — counteracts entropy collapse
+    vf_coef=0.75,     # was 0.5 (default) — prioritizes critic recovery
+    clip_range=0.15,  # was 0.2 (default) — reduces policy step size
+)
+```
+
+The same hyperparameters are also patched in the checkpoint-resume code path so they take effect immediately when loading from an existing checkpoint — the model weights are fully preserved, only the training update rules change.
+
+**What to watch in TensorBoard after applying these fixes:**
+- `train/explained_variance` → should stabilize above 0.3 within 2–3M steps
+- `train/entropy_loss` → should stop declining; stabilize around -1.7 to -1.8
+- `train/clip_fraction` → should fall back from 0.11 toward 0.06
+- `rollout/mean_badge` → first nonzero values expected within 10–15M steps
 
 ---
 

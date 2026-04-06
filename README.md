@@ -174,10 +174,12 @@ python src/v3/baseline_fast_v3.py
 | **Screen format** | 36×40 RGB, 3 stacked | 72×80 grayscale, 3 stacked | 72×80 grayscale, 1 frame (LSTM handles temporal context) |
 | **Policy architecture** | CNN → shared features → actor/critic | CNN (screens, map) + MLP (scalars) → combined → actor/critic | CNN + MLP → LSTM (128h, 1L) → actor/critic |
 | **Parallel envs** | 16 | 64 | 64 |
-| **PPO epochs/update** | 3 | 1 | 3 |
+| **PPO epochs/update** | 3 | 1 | 1 |
 | **Batch size** | 128 | 512 | 512 |
-| **Discount (gamma)** | 0.998 | 0.997 | 0.995 |
-| **Entropy coef** | 0 (default) | 0.01 | 0.01 |
+| **Discount (gamma)** | 0.998 | 0.997 | 0.997 |
+| **Entropy coef** | 0 (default) | 0.01 | 0.02 |
+| **Value fn coef** | 0.5 (default) | 0.5 (default) | 0.75 |
+| **Clip range** | 0.2 (default) | 0.2 (default) | 0.15 |
 | **Memory usage** | Higher (KNN index ~20K frames) | Lower (coordinate dict only) | Moderate (coords + graph + LSTM states) |
 | **Training speed** | Slower | Faster | Moderate (LSTM overhead) |
 | **Initial game state** | Has Pokedex + Pokeballs | Start of game | Start of game |
@@ -310,8 +312,11 @@ Key parameters you may want to adjust (in the training scripts):
 | `num_cpu` | 16 | 64 | 64 | Number of parallel environments (reduce if you have fewer cores) |
 | `ep_length` | 20,480 | 163,840 | 163,840 | Steps per episode per environment |
 | `batch_size` | 128 | 512 | 512 | PPO minibatch size |
-| `n_epochs` | 3 | 1 | 3 | PPO update epochs per rollout |
-| `gamma` | 0.998 | 0.997 | 0.995 | Discount factor |
+| `n_epochs` | 3 | 1 | 1 | PPO update epochs per rollout |
+| `gamma` | 0.998 | 0.997 | 0.997 | Discount factor |
+| `ent_coef` | 0 | 0.01 | 0.02 | Entropy coefficient (exploration bonus) |
+| `vf_coef` | 0.5 | 0.5 | 0.75 | Value function loss weight |
+| `clip_range` | 0.2 | 0.2 | 0.15 | PPO clipping range |
 | `reward_scale` | 4 | 0.5 | 0.5 | Scales all reward components |
 | `explore_weight` | 3 | 0.25 | 0.25 | Weight of exploration reward |
 | `action_freq` | 24 | 24 | 24 | Emulator ticks per agent step |
@@ -569,6 +574,38 @@ pip install .[ray]         # Ray RLlib experiment
 | `einops` | 0.6.1 | 0.8.0 | ≥0.8.0 | Tensor reshaping |
 | `mediapy` | custom fork | 1.2.2 | ≥1.2.2 | Video recording |
 | `websockets` | — | 13.1 | ≥13.1 | Live map streaming |
+
+---
+
+## V3 Training Post-Mortems
+
+### Performance Regression at 63M–84M Steps (fixed)
+
+**Observed**: The V3 agent peaked at ~63M training steps then regressed ~18% in reward by 84M steps — more training made it *worse*, not better. Despite exploring 1,600+ tiles and reaching level 18–20 Pokémon after 84M steps across 64 parallel environments, the agent earned **zero gym badges**.
+
+**Root causes**:
+
+1. **Value network collapse** — Explained variance dropped from 0.39 → 0.16 and oscillated wildly (0.1–0.8). The combination of `n_epochs=3` and LSTM caused the value function to overfit each rollout batch against stale hidden states: on passes 2 and 3 the policy had already shifted, but the LSTM context that generated those transitions had not. Bad value estimates → bad advantage calculations → destabilizing policy updates.
+
+2. **Entropy collapse** — Policy entropy fell from -1.94 → -1.62 while clip fraction doubled (0.06 → 0.11). The agent was committing harder to a narrowing strategy while simultaneously making larger policy swings. `ent_coef=0.01` was too weak to resist entropy reduction from the policy gradient.
+
+3. **Reward imbalance (badge threshold trap)** — The exploration reward at 1,600 tiles = `0.5 × 0.25 × 1600 × 0.1 = 20.0`. The badge reward for 1 badge = `0.5 × 1 × 10 = 5.0`. The agent earned **4× more from pure tile exploration** than from winning a gym battle, so it never bothered. Compounding this, the `op_lvl` (opponent level) reward — which incentivizes actually engaging and winning trainer battles — had been silently dropped from V3's reward dict even though the `update_max_op_level()` method still existed in the codebase.
+
+**Key insight**: The agent wasn't failing — it was perfectly rational given the reward signal it received. Exploration was simply far more profitable than fighting gym leaders.
+
+**Fixes applied** (`src/v3/red_gym_env_v3.py`, `src/v3/baseline_fast_v3.py`):
+
+| Fix | Change | Effect |
+|-----|--------|--------|
+| Re-enable `op_lvl` reward | Add `"op_lvl": reward_scale × update_max_op_level() × 0.2` to `state_scores` | Creates monotonically increasing incentive for fighting stronger opponents / gym leaders |
+| Increase badge reward | Multiplier `10 → 25` (badge worth 5.0 → 12.5) | Badge reward is now competitive with exploration reward |
+| Reduce `n_epochs` | `3 → 1` | Eliminates value function overfitting against stale LSTM hidden states; matches stable V2 setting |
+| Restore `gamma` | `0.995 → 0.997` | Extends effective planning horizon (200 → 333 steps); sparse badge reward propagates further back in time; matches stable V2 setting |
+| Increase `ent_coef` | `0.01 → 0.02` | Stronger entropy bonus counteracts monotonic entropy decline |
+| Increase `vf_coef` | `0.5 → 0.75` | Compensates for fewer gradient steps per batch; prioritizes critic recovery |
+| Reduce `clip_range` | `0.2 → 0.15` | Smaller policy step size; brings clip fraction back from 0.11 toward 0.06 |
+
+All hyperparameter changes are also applied in the checkpoint-resume code path so they take effect immediately when continuing from an existing checkpoint.
 
 ---
 

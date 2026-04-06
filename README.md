@@ -429,17 +429,6 @@ PokemonRL/
 │       └── runs/                # ← CREATED AT RUNTIME (checkpoints, TensorBoard, screenshots)
 │           ├── poke_<steps>_steps.zip   # Checkpoints w/ LSTM state (place pre-trained model here)
 │           └── final_states/            # Episode screenshots
-│
-├── visualization/               # Map and progress visualization scripts & notebooks
-│   ├── BetterMapVis_script_version.py
-│   ├── BetterMapVis_script_version_FLOW.py
-│   ├── BetterMapVis_script_version_FLOW_edge.py
-│   ├── BetterMapVis_script_version_PROG_COLOR.py
-│   ├── poke_map/                # Map assets (base map images)
-│   └── sprites/                 # Sprite assets for visualization
-│
-├── assets/                      # Images and media for documentation
-├── experiments/                 # Experimental utilities (test images, CLIP tests)
 ├── windows-setup-guide.md       # Windows-specific installation guide
 └── LICENSE
 ```

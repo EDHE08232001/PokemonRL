@@ -160,7 +160,7 @@ class RedGymEnv(Env):
         self.observation_space = spaces.Dict(
             {
                 "screens": spaces.Box(low=0, high=255, shape=self.output_shape, dtype=np.uint8),
-                "health": spaces.Box(low=0, high=1),
+                "health": spaces.Box(low=0, high=1, shape=(1,)),
                 "level": spaces.Box(low=-1, high=1, shape=(self.enc_freqs,)),
                 "badges": spaces.MultiBinary(8),
                 "events": spaces.MultiBinary((event_flags_end - event_flags_start) * 8),
@@ -182,7 +182,7 @@ class RedGymEnv(Env):
         if not config["headless"]:
             self.pyboy.set_emulation_speed(6)
 
-    def reset(self, seed=None, options={}):
+    def reset(self, seed=None, options=None):
         """Reset emulator state and all episode tracking variables."""
         self.seed = seed
         with open(self.init_state, "rb") as f:

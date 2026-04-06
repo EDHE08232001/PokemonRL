@@ -267,8 +267,8 @@ class RedGymEnv(Env):
 
         observation = {
             "screens": self.recent_screens,
-            "health": np.array([self.read_hp_fraction()]),
-            "level": self.fourier_encode(level_sum),
+            "health": np.array([self.read_hp_fraction()], dtype=np.float32),
+            "level": self.fourier_encode(level_sum).astype(np.float32),
             "badges": np.array([int(bit) for bit in f"{self.read_m(0xD356):08b}"], dtype=np.int8),
             "events": np.array(self.read_event_bits(), dtype=np.int8),
             "map": self.get_explore_map()[:, :, None],  # local map crop

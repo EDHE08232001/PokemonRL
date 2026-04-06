@@ -1,6 +1,6 @@
 # Windows Setup Guide
 
-> Originally contributed by Discord user **@Aisiktir**. Updated April 2026 to reflect the current project structure (`pyproject.toml`, Baseline/V2/V3 versions, `main.py` entry point).
+> Originally written by Discord user **@Aisiktir**. Updated April 2026 to reflect the current project folk (`pyproject.toml`, Baseline/V2/V3 versions, `main.py` entry point).
 
 ---
 

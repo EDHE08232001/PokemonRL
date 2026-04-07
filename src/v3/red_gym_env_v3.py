@@ -42,9 +42,7 @@ OAK_PARCEL_MILESTONES = {
 
 # --- Battle state memory addresses ---
 BATTLE_TYPE_ADDR = 0xD057      # 0 = overworld, 1 = wild, 2 = trainer
-TRAINER_CLASS_ADDR = 0xD031    # Current trainer class in battle
 ENEMY_HP_ADDRS = [0xCFE6, 0xCFE7]  # Enemy pokemon current HP (16-bit big-endian)
-ENEMY_PARTY_COUNT = 0xD89C     # Number of pokemon in enemy trainer's party
 
 # WRAM text buffer address and length (Gen 1)
 TEXT_BUFFER_ADDR = 0xCF4B
@@ -857,12 +855,12 @@ class RedGymEnv(Env):
         """Reward for catching pokemon with bonus for each new catch.
 
         Uses max_party_size to make this monotonically increasing (one-time style).
-        Rewards scale: first catch beyond starter is most valuable, diminishing after.
+        Rewards scale: 1st catch = 2.5, 2nd = 2.0, diminishing by 0.5, min 0.5.
         """
         size = self.max_party_size
         if size <= 1:
             return 0
-        # Each pokemon beyond the starter: 1st catch = 2, 2nd = 1.5, etc.
+        # Each pokemon beyond the starter: 1st catch = 2.5, 2nd = 2.0, etc.
         reward = 0
         for i in range(2, size + 1):
             reward += max(2.5 - 0.5 * (i - 2), 0.5)

@@ -31,6 +31,21 @@ event_flags_start = 0xD747
 event_flags_end = 0xD886  # full standard event range (Seafoam, Articuno, late game)
 museum_ticket = (0xD754, 0)
 
+# --- Oak's Parcel quest milestones (address, bit) ---
+OAK_PARCEL_MILESTONES = {
+    "got_oaks_parcel": (0xD74E, 1),      # Picked up parcel from Viridian Mart
+    "oak_got_parcel": (0xD74E, 0),        # Delivered parcel to Oak
+    "got_pokedex": (0xD74B, 5),           # Received Pokedex from Oak
+    "got_pokeballs": (0xD74B, 4),         # Received Pokeballs from Oak
+    "pallet_after_pokeballs": (0xD747, 6),  # Pallet Town open after getting balls
+}
+
+# --- Battle state memory addresses ---
+BATTLE_TYPE_ADDR = 0xD057      # 0 = overworld, 1 = wild, 2 = trainer
+TRAINER_CLASS_ADDR = 0xD031    # Current trainer class in battle
+ENEMY_HP_ADDRS = [0xCFE6, 0xCFE7]  # Enemy pokemon current HP (16-bit big-endian)
+ENEMY_PARTY_COUNT = 0xD89C     # Number of pokemon in enemy trainer's party
+
 # WRAM text buffer address and length (Gen 1)
 TEXT_BUFFER_ADDR = 0xCF4B
 TEXT_BUFFER_LEN = 20
@@ -236,6 +251,27 @@ class RedGymEnv(Env):
         # --- V3: Semantic reward accumulator (for step delta tracking) ---
         self.semantic_reward = 0.0
 
+        # --- Oak's Parcel quest tracking (one-time milestone rewards) ---
+        self.oak_parcel_milestones_claimed = set()
+        self.oak_parcel_reward = 0.0
+
+        # --- Battle progression tracking ---
+        self.total_enemy_faint_reward = 0.0
+        self.total_trainer_win_reward = 0.0
+        self.enemy_faint_count = 0
+        self.trainer_win_count = 0
+        self.prev_battle_type = 0
+        self.prev_enemy_hp = 0
+        self.in_battle = False
+        self.battle_entry_reward = 0.0
+        self.battle_entries = 0
+
+        # --- Party growth tracking ---
+        self.max_party_size = self.read_m(0xD163)
+
+        # --- Reward component tracking for instrumentation ---
+        self.reward_components = {}
+
         self.progress_reward = self.get_game_state_reward()
         self.total_reward = sum([val for _, val in self.progress_reward.items()])
         self.reset_count += 1
@@ -307,6 +343,15 @@ class RedGymEnv(Env):
 
         # --- V3: Topological graph update ---
         self.update_world_graph()
+
+        # --- Oak's Parcel quest check ---
+        self.check_oak_parcel_milestones()
+
+        # --- Battle progression tracking ---
+        self.update_battle_rewards()
+
+        # --- Party growth tracking ---
+        self.update_party_growth()
 
         new_reward = self.update_reward()
 
@@ -400,6 +445,70 @@ class RedGymEnv(Env):
                 self.graph_distance = 255  # unreachable — signal with max distance
 
     # ------------------------------------------------------------------ #
+    #  Oak's Parcel Quest Progression                                     #
+    # ------------------------------------------------------------------ #
+
+    def check_oak_parcel_milestones(self):
+        """Check for Oak's Parcel quest milestones and grant one-time rewards."""
+        for name, (addr, bit) in OAK_PARCEL_MILESTONES.items():
+            if name not in self.oak_parcel_milestones_claimed:
+                if self.read_bit(addr, bit):
+                    self.oak_parcel_milestones_claimed.add(name)
+                    self.oak_parcel_reward += 5.0  # one-time milestone bonus
+
+    # ------------------------------------------------------------------ #
+    #  Battle Progression Tracking                                        #
+    # ------------------------------------------------------------------ #
+
+    def update_battle_rewards(self):
+        """Track battle events: entry, enemy faints, trainer victories."""
+        battle_type = self.read_m(BATTLE_TYPE_ADDR)
+        enemy_hp = 256 * self.read_m(ENEMY_HP_ADDRS[0]) + self.read_m(ENEMY_HP_ADDRS[1])
+
+        # Battle entry detection (overworld → battle transition)
+        if battle_type > 0 and not self.in_battle:
+            self.in_battle = True
+            # One-time per-battle entry reward (bounded by count)
+            if self.battle_entries < 200:
+                self.battle_entry_reward += 0.5
+                self.battle_entries += 1
+
+        # Enemy faint detection: was in battle with enemy HP > 0, now HP == 0
+        if self.in_battle and battle_type > 0:
+            if self.prev_enemy_hp > 0 and enemy_hp == 0:
+                self.enemy_faint_count += 1
+                # Bounded: diminishing after 50 faints
+                if self.enemy_faint_count <= 50:
+                    self.total_enemy_faint_reward += 1.0
+                else:
+                    self.total_enemy_faint_reward += 0.2
+
+        # Battle exit detection (battle → overworld)
+        if battle_type == 0 and self.in_battle:
+            self.in_battle = False
+            # Trainer victory: was in trainer battle (type 2), agent survived
+            if self.prev_battle_type == 2 and self.read_hp_fraction() > 0:
+                self.trainer_win_count += 1
+                # Bounded: diminishing after 30 trainer wins
+                if self.trainer_win_count <= 30:
+                    self.total_trainer_win_reward += 2.0
+                else:
+                    self.total_trainer_win_reward += 0.5
+
+        self.prev_battle_type = battle_type
+        self.prev_enemy_hp = enemy_hp
+
+    # ------------------------------------------------------------------ #
+    #  Party Growth Tracking                                              #
+    # ------------------------------------------------------------------ #
+
+    def update_party_growth(self):
+        """Track party size increases for catch incentive."""
+        current_size = self.read_m(0xD163)
+        if current_size > self.max_party_size:
+            self.max_party_size = current_size
+
+    # ------------------------------------------------------------------ #
     #  Emulator & Input                                                   #
     # ------------------------------------------------------------------ #
 
@@ -445,6 +554,16 @@ class RedGymEnv(Env):
                 "maps_discovered": len(self.discovered_maps),
                 "graph_distance": self.graph_distance,
                 "max_opponent_level": self.max_opponent_level,
+                # New: battle progression stats
+                "enemy_faint_count": self.enemy_faint_count,
+                "trainer_win_count": self.trainer_win_count,
+                "battle_entries": self.battle_entries,
+                # New: quest progression
+                "oak_milestones": len(self.oak_parcel_milestones_claimed),
+                # New: party growth
+                "max_party_size": self.max_party_size,
+                # New: reward component breakdown
+                "reward_components": dict(self.reward_components),
             }
         )
         # Cap agent_stats to prevent unbounded memory growth (~82MB per env at end of episode)
@@ -697,7 +816,8 @@ class RedGymEnv(Env):
     def get_game_state_reward(self, print_stats=False):
         """
         Compute composite reward dict.
-        V3 adds: semantic (text) and warp discovery rewards.
+        V3 adds: semantic (text), warp discovery, Oak's Parcel quest,
+        battle progression, and party growth rewards.
         """
         state_scores = {
             "event": self.reward_scale * self.update_max_event_rew() * 4,
@@ -708,8 +828,15 @@ class RedGymEnv(Env):
             "explore": self.reward_scale * self.explore_weight * len(self.seen_coords) * 0.1,
             "stuck": self.reward_scale * self.get_current_coord_count_reward() * -0.5,
             "semantic": self.reward_scale * self.semantic_reward,
-            "party": self.reward_scale * self.get_party_size_reward() * 2.0,
+            "party": self.reward_scale * self.get_party_growth_reward() * 3.0,
+            "oak_parcel": self.reward_scale * self.oak_parcel_reward,
+            "battle_entry": self.reward_scale * self.battle_entry_reward * 0.5,
+            "enemy_faint": self.reward_scale * self.total_enemy_faint_reward * 0.5,
+            "trainer_win": self.reward_scale * self.total_trainer_win_reward * 0.5,
         }
+
+        # Store for instrumentation / TensorBoard logging
+        self.reward_components = state_scores
 
         return state_scores
 
@@ -726,9 +853,20 @@ class RedGymEnv(Env):
         self.max_opponent_level = max(self.max_opponent_level, opponent_level)
         return self.max_opponent_level
 
-    def get_party_size_reward(self):
-        """Reward for catching pokemon. Reads party count (1–6) from 0xD163."""
-        return self.read_m(0xD163)
+    def get_party_growth_reward(self):
+        """Reward for catching pokemon with bonus for each new catch.
+
+        Uses max_party_size to make this monotonically increasing (one-time style).
+        Rewards scale: first catch beyond starter is most valuable, diminishing after.
+        """
+        size = self.max_party_size
+        if size <= 1:
+            return 0
+        # Each pokemon beyond the starter: 1st catch = 2, 2nd = 1.5, etc.
+        reward = 0
+        for i in range(2, size + 1):
+            reward += max(2.5 - 0.5 * (i - 2), 0.5)
+        return reward
 
     def update_max_event_rew(self):
         """Track max event reward (monotonically increasing)."""

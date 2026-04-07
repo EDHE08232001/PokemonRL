@@ -57,9 +57,9 @@ def _format_env_summary(all_stats, timestep, elapsed_seconds):
     if not valid:
         return ""
 
-    # Columns: env_id, step, map, event, level, badge, explore, deaths, dialogue, graph_dist, reward_sum
-    headers = ["env", "step", "map", "event", "level", "badge", "explore", "deaths", "dialogue", "graph_dist", "reward_sum"]
-    col_widths = [5, 7, 5, 7, 7, 5, 7, 6, 8, 10, 10]
+    # Columns: env_id, step, map, event, level, badge, explore, deaths, dialogue, graph_dist, faints, t_wins, oak, party, reward_sum
+    headers = ["env", "step", "map", "event", "level", "badge", "explore", "deaths", "dialogue", "g_dist", "faints", "t_win", "oak", "party", "rew_sum"]
+    col_widths = [5, 7, 5, 7, 7, 5, 7, 6, 8, 6, 6, 5, 3, 5, 10]
 
     def _fmt_row(vals):
         cells = []
@@ -87,6 +87,10 @@ def _format_env_summary(all_stats, timestep, elapsed_seconds):
             s.get("deaths", 0),
             s.get("dialogue_count", 0),
             s.get("graph_distance", 0),
+            s.get("enemy_faint_count", 0),
+            s.get("trainer_win_count", 0),
+            s.get("oak_milestones", 0),
+            s.get("max_party_size", 1),
             f'{s.get("event", 0) + s.get("healr", 0):.2f}',
         ]
         rows.append((s.get("event", 0) + s.get("healr", 0), row_vals))
@@ -186,6 +190,39 @@ class TensorboardCallback(BaseCallback):
             op_levels = [info.get("max_opponent_level", 0) for info in all_final_infos]
             self.logger.record("v3/mean_op_level", np.mean(op_levels))
             self.logger.record("v3/max_op_level", max(op_levels))
+
+            # V3: Battle progression metrics
+            enemy_faints = [info.get("enemy_faint_count", 0) for info in all_final_infos]
+            trainer_wins = [info.get("trainer_win_count", 0) for info in all_final_infos]
+            battle_entries = [info.get("battle_entries", 0) for info in all_final_infos]
+            self.logger.record("v3/mean_enemy_faints", np.mean(enemy_faints))
+            self.logger.record("v3/max_enemy_faints", max(enemy_faints))
+            self.logger.record("v3/mean_trainer_wins", np.mean(trainer_wins))
+            self.logger.record("v3/max_trainer_wins", max(trainer_wins))
+            self.logger.record("v3/mean_battle_entries", np.mean(battle_entries))
+            self.logger.record("v3/max_battle_entries", max(battle_entries))
+
+            # V3: Quest progression metrics
+            oak_milestones = [info.get("oak_milestones", 0) for info in all_final_infos]
+            self.logger.record("v3/mean_oak_milestones", np.mean(oak_milestones))
+            self.logger.record("v3/max_oak_milestones", max(oak_milestones))
+
+            # V3: Party growth metrics
+            max_party = [info.get("max_party_size", 1) for info in all_final_infos]
+            self.logger.record("v3/mean_max_party_size", np.mean(max_party))
+            self.logger.record("v3/max_max_party_size", max(max_party))
+
+            # V3: Per-component reward instrumentation
+            reward_comp_lists = {}
+            for info in all_final_infos:
+                comps = info.get("reward_components", {})
+                for k, v in comps.items():
+                    if isinstance(v, (int, float)):
+                        reward_comp_lists.setdefault(k, []).append(v)
+            for comp_name, values in reward_comp_lists.items():
+                arr = np.array(values)
+                self.logger.record(f"reward_components/{comp_name}_mean", np.mean(arr))
+                self.logger.record(f"reward_components/{comp_name}_max", np.max(arr))
 
         return True
 

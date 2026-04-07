@@ -62,19 +62,23 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
 
 ### Reward Structure
 
-V3's composite reward includes all V2 components plus new additions:
+V3's composite reward has 13 components (all logged individually to TensorBoard for instrumentation):
 
 | Component | Formula | Purpose |
 |-----------|---------|---------|
 | `event` | `reward_scale × max_event_flags × 4` | Story progress (event flags) |
 | `level` | `reward_scale × level_reward` | Party leveling (incentivizes battles) |
 | `heal` | `reward_scale × total_healing × 10` | Healing at Pokemon Centers |
-| `badge` | `reward_scale × badge_count × 25` | Gym badge collection (multiplier raised from 10 to 25 to be competitive with explore reward) |
-| `op_lvl` | `reward_scale × max_opponent_level × 0.2` | Monotonically increasing reward for fighting stronger opponents; incentivizes engaging gym trainers/leaders |
+| `badge` | `reward_scale × badge_count × 25` | Gym badge collection (raised from 10 → 25 to compete with explore reward) |
+| `op_lvl` | `reward_scale × max_opponent_level × 0.2` | Monotonically increasing reward for fighting stronger opponents |
 | `explore` | `reward_scale × explore_weight × unique_coords × 0.1` | Spatial exploration |
 | `stuck` | `reward_scale × -0.5` (if tile visited 600+ times) | Anti-oscillation penalty (10× stronger than V2) |
 | `semantic` | `reward_scale × semantic_reward` | +0.5 per new dialogue, +2.0 per new map via warp |
-| `party` | `reward_scale × party_size_reward × 2.0` | Party size from `0xD163`; incentivizes catching pokemon |
+| `party` | `reward_scale × get_party_growth_reward() × 3.0` | Diminishing-returns party growth (1st catch = 2.5, 2nd = 2.0, …, 5th = 0.5) |
+| `oak_parcel` | `reward_scale × oak_parcel_reward` | Oak's Parcel quest shaping: 5 milestones × 5.0 (enter Viridian Mart → deliver parcel → receive Pokédex → get Poké Balls → first catch) |
+| `battle_entry` | `reward_scale × battle_entry_reward × 0.5` | +0.5 per battle entered, capped at 200 battles |
+| `enemy_faint` | `reward_scale × total_enemy_faint_reward × 0.5` | +1.0 per enemy fainted, diminishing after 50 |
+| `trainer_win` | `reward_scale × total_trainer_win_reward × 0.5` | +2.0 per trainer defeated, diminishing after 30 |
 
 ### Memory Optimization
 
@@ -113,6 +117,8 @@ src/v3/runs/
 - `v3/mean_dialogue_count` / `v3/max_dialogue_count` — unique dialogue strings discovered
 - `v3/mean_graph_nodes` / `v3/max_graph_nodes` — topological graph size
 - `v3/mean_maps_discovered` / `v3/max_maps_discovered` — unique map IDs reached via warps
+- `v3/mean_op_level` / `v3/max_op_level` — highest opponent level encountered
+- `v3/reward/<component>` — per-component reward breakdown (13 components: event, level, heal, badge, op_lvl, explore, stuck, semantic, party, oak_parcel, battle_entry, enemy_faint, trainer_win)
 
 Plus all standard V2 metrics (`env_stats/`, `env_stats_max/`, `env_stats_distribs/`, `trajectory/`).
 
@@ -236,6 +242,8 @@ V3 adds these TensorBoard metrics under `v3/`:
 - `v3/mean_dialogue_count` / `v3/max_dialogue_count` — unique dialogue strings discovered
 - `v3/mean_graph_nodes` / `v3/max_graph_nodes` — topological graph size
 - `v3/mean_maps_discovered` / `v3/max_maps_discovered` — unique map IDs reached via warps
+- `v3/mean_op_level` / `v3/max_op_level` — highest opponent level encountered
+- `v3/reward/<component>` — per-component reward breakdown (13 components)
 
 ---
 
@@ -348,6 +356,68 @@ The same hyperparameters are also patched in the checkpoint-resume code path so 
 | `networkx` | ≥3.0 | Directed graph for topological map navigation |
 
 All other dependencies are shared with V2 (see `pyproject.toml` at the project root).
+
+---
+
+## Changelog
+
+### 2026-04-07 — Reward Instrumentation, Quest Shaping & Battle Progression (`e287c10`)
+
+Major reward system expansion adding 4 new components and per-component instrumentation:
+
+- **Oak's Parcel Quest Shaping** (`oak_parcel`): 5 milestone rewards × 5.0 each, guiding the agent through the early-game quest chain (enter Viridian Mart → deliver parcel → receive Pokédex → get Poké Balls → first catch).
+- **Battle Entry** (`battle_entry`): +0.5 per battle entered, capped at 200 battles to prevent farming.
+- **Enemy Faint** (`enemy_faint`): +1.0 per enemy fainted, with diminishing returns after 50 faints.
+- **Trainer Win** (`trainer_win`): +2.0 per trainer defeated, with diminishing returns after 30 wins.
+- **Party Growth Rework**: Changed from linear (`party_count × 2.0`) to diminishing-returns curve via `get_party_growth_reward() × 3.0` (1st catch = 2.5, 2nd = 2.0, …, 5th = 0.5).
+- **Per-Component Reward Instrumentation**: All 13 reward components are now individually logged to TensorBoard under `v3/reward/<component>`, enabling fine-grained reward analysis.
+- **Extended SLURM Summary Table**: Added new reward columns and battle stats to the rollout-end summary.
+
+### 2026-04-07 — TensorBoard Logging Fix & Cleanup (`2454919`)
+
+- **Episode Metric Logging**: Moved episode-level metric logging from `_on_step` to `_on_rollout_end` in `tensorboard_callback_v3.py`. SubprocVecEnv auto-resets environments silently, so `_on_step` episode-end detection was always False — metrics were never logged.
+- **Docstring Fix**: Corrected `get_party_growth_reward` docstring from "1st catch = 2, 2nd = 1.5" to "1st catch = 2.5, 2nd = 2.0" to match actual implementation.
+- **Removed Unused Constants**: Deleted `TRAINER_CLASS_ADDR` and `ENEMY_PARTY_COUNT` from `red_gym_env_v3.py`.
+- **Mutable Default Fix**: Fixed `StreamWrapper.__init__` mutable default argument (`config={}` → `config=None`).
+
+### 2026-04-06 — Replace Deprecated `get_schedule_fn` (`5234bab`)
+
+- Replaced deprecated `get_schedule_fn(clip_range)` with `FloatSchedule(clip_range)` in `baseline_fast_v3.py` to fix deprecation warnings from SB3 v2.4+.
+
+### 2026-04-06 — Dtype Mismatch Fix (`5d7ae25`)
+
+- Fixed `float64`/`float32` dtype mismatch in health and level observations. NumPy operations produced `float64` arrays but the observation space declared `float32`, causing SB3 warnings and potential numerical issues.
+
+### 2026-04-06 — Health Observation Space Shape Fix (`0ce90fe`)
+
+- Added explicit `shape=(1,)` to the health `Box` space to match the observation output shape (was implicitly scalar, causing shape mismatch).
+- Fixed mutable default argument in `reset(options={})` → `reset(options=None)`.
+
+### 2026-04-06 — Clip Range Crash Fix & op_lvl Telemetry (`e688b3f`)
+
+- Fixed `TypeError` crash on checkpoint resume: `clip_range` must be wrapped in a schedule function (not a raw float) for `PPO.train()` to work correctly.
+- Added `max_opponent_level` to `agent_stats` in `append_agent_stats()`.
+- Added `v3/mean_op_level` and `v3/max_op_level` to TensorBoard callback.
+
+### 2026-04-06 — Performance Regression Fix (`f4aa2cd`)
+
+Major PPO stability and reward rebalancing fix. See [Training Post-Mortems](#performance-regression-at-63m84m-steps-fixed) for full analysis.
+
+- `n_epochs`: 3 → 1 (fixes LSTM value network instability)
+- `gamma`: 0.995 → 0.997 (restores V2 planning horizon)
+- `ent_coef`: 0.01 → 0.02 (counteracts entropy collapse)
+- `vf_coef`: 0.5 → 0.75 (prioritizes critic accuracy)
+- `clip_range`: 0.2 → 0.15 (reduces policy step size)
+- `badge` multiplier: 10 → 25 (makes gym badges competitive with exploration)
+- Re-enabled `op_lvl` reward (was silently missing from V3's reward dict)
+
+### 2026-04-03 — SubprocVecEnv Worker Hang Fix (`9c38c52`)
+
+- Fixed hanging SubprocVecEnv worker processes on SLURM job exit. Workers now handle `BrokenPipeError` and `EOFError` gracefully, allowing clean process termination when the parent process is killed by SLURM.
+
+### 2026-04-01 — PyBoy Sound Emulation Disabled (`6ade06b`)
+
+- Disabled PyBoy sound emulation entirely to prevent 732GB log files caused by `CRITICAL Buffer overrun!` messages. Combined with the earlier logger suppression (`706393b`), this fully eliminates SLURM output inflation.
 
 ---
 

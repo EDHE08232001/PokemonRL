@@ -159,8 +159,73 @@ class TensorboardCallback(BaseCallback):
     def _on_step(self) -> bool:
         return True
 
-    def _log_episode_metrics(self, all_stats):
-        """Log episode-level metrics to TensorBoard."""
+    def _log_v3_scalar_metrics(self, stats):
+        """Log V3-specific scalar metrics to TensorBoard.
+
+        Called every rollout so that mid-episode data is captured.
+        The stats list must contain non-empty dicts (filter beforehand).
+        """
+        if not stats or all(not s for s in stats):
+            return
+
+        # Filter out empty dicts (can happen right after auto-reset)
+        valid = [s for s in stats if s]
+        if not valid:
+            return
+
+        # Semantic & graph metrics
+        dialogue_counts = [s.get("dialogue_count", 0) for s in valid]
+        graph_nodes = [s.get("graph_nodes", 0) for s in valid]
+        maps_discovered = [s.get("maps_discovered", 0) for s in valid]
+        self.logger.record("v3/mean_dialogue_count", np.mean(dialogue_counts))
+        self.logger.record("v3/max_dialogue_count", max(dialogue_counts))
+        self.logger.record("v3/mean_graph_nodes", np.mean(graph_nodes))
+        self.logger.record("v3/max_graph_nodes", max(graph_nodes))
+        self.logger.record("v3/mean_maps_discovered", np.mean(maps_discovered))
+        self.logger.record("v3/max_maps_discovered", max(maps_discovered))
+
+        op_levels = [s.get("max_opponent_level", 0) for s in valid]
+        self.logger.record("v3/mean_op_level", np.mean(op_levels))
+        self.logger.record("v3/max_op_level", max(op_levels))
+
+        # Battle progression
+        enemy_faints = [s.get("enemy_faint_count", 0) for s in valid]
+        trainer_wins = [s.get("trainer_win_count", 0) for s in valid]
+        battle_entries = [s.get("battle_entries", 0) for s in valid]
+        self.logger.record("v3/mean_enemy_faints", np.mean(enemy_faints))
+        self.logger.record("v3/max_enemy_faints", max(enemy_faints))
+        self.logger.record("v3/mean_trainer_wins", np.mean(trainer_wins))
+        self.logger.record("v3/max_trainer_wins", max(trainer_wins))
+        self.logger.record("v3/mean_battle_entries", np.mean(battle_entries))
+        self.logger.record("v3/max_battle_entries", max(battle_entries))
+
+        # Quest progression
+        oak_milestones = [s.get("oak_milestones", 0) for s in valid]
+        self.logger.record("v3/mean_oak_milestones", np.mean(oak_milestones))
+        self.logger.record("v3/max_oak_milestones", max(oak_milestones))
+
+        # Party growth
+        max_party = [s.get("max_party_size", 1) for s in valid]
+        self.logger.record("v3/mean_max_party_size", np.mean(max_party))
+        self.logger.record("v3/max_max_party_size", max(max_party))
+
+        # Per-component reward instrumentation
+        reward_comp_lists = {}
+        for s in valid:
+            comps = s.get("reward_components", {})
+            for k, v in comps.items():
+                if isinstance(v, (int, float)):
+                    reward_comp_lists.setdefault(k, []).append(v)
+        for comp_name, values in reward_comp_lists.items():
+            arr = np.array(values)
+            self.logger.record(f"reward_components/{comp_name}_mean", np.mean(arr))
+            self.logger.record(f"reward_components/{comp_name}_max", np.max(arr))
+
+    def _log_heavy_metrics(self, all_stats):
+        """Log histograms, exploration maps, and event flags (expensive).
+
+        Called at episode boundaries using end-of-episode stat snapshots.
+        """
         mean_infos, distributions = merge_dicts(all_stats)
 
         # Log mean and max stats across all parallel envs
@@ -183,56 +248,8 @@ class TensorboardCallback(BaseCallback):
         merged_flags = {k: v for d in list_of_flag_dicts for k, v in d.items()}
         self.logger.record("trajectory/all_flags", json.dumps(merged_flags))
 
-        # V3: Log semantic and graph metrics
-        dialogue_counts = [info.get("dialogue_count", 0) for info in all_stats]
-        graph_nodes = [info.get("graph_nodes", 0) for info in all_stats]
-        maps_discovered = [info.get("maps_discovered", 0) for info in all_stats]
-        self.logger.record("v3/mean_dialogue_count", np.mean(dialogue_counts))
-        self.logger.record("v3/max_dialogue_count", max(dialogue_counts))
-        self.logger.record("v3/mean_graph_nodes", np.mean(graph_nodes))
-        self.logger.record("v3/max_graph_nodes", max(graph_nodes))
-        self.logger.record("v3/mean_maps_discovered", np.mean(maps_discovered))
-        self.logger.record("v3/max_maps_discovered", max(maps_discovered))
-
-        op_levels = [info.get("max_opponent_level", 0) for info in all_stats]
-        self.logger.record("v3/mean_op_level", np.mean(op_levels))
-        self.logger.record("v3/max_op_level", max(op_levels))
-
-        # V3: Battle progression metrics
-        enemy_faints = [info.get("enemy_faint_count", 0) for info in all_stats]
-        trainer_wins = [info.get("trainer_win_count", 0) for info in all_stats]
-        battle_entries = [info.get("battle_entries", 0) for info in all_stats]
-        self.logger.record("v3/mean_enemy_faints", np.mean(enemy_faints))
-        self.logger.record("v3/max_enemy_faints", max(enemy_faints))
-        self.logger.record("v3/mean_trainer_wins", np.mean(trainer_wins))
-        self.logger.record("v3/max_trainer_wins", max(trainer_wins))
-        self.logger.record("v3/mean_battle_entries", np.mean(battle_entries))
-        self.logger.record("v3/max_battle_entries", max(battle_entries))
-
-        # V3: Quest progression metrics
-        oak_milestones = [info.get("oak_milestones", 0) for info in all_stats]
-        self.logger.record("v3/mean_oak_milestones", np.mean(oak_milestones))
-        self.logger.record("v3/max_oak_milestones", max(oak_milestones))
-
-        # V3: Party growth metrics
-        max_party = [info.get("max_party_size", 1) for info in all_stats]
-        self.logger.record("v3/mean_max_party_size", np.mean(max_party))
-        self.logger.record("v3/max_max_party_size", max(max_party))
-
-        # V3: Per-component reward instrumentation
-        reward_comp_lists = {}
-        for info in all_stats:
-            comps = info.get("reward_components", {})
-            for k, v in comps.items():
-                if isinstance(v, (int, float)):
-                    reward_comp_lists.setdefault(k, []).append(v)
-        for comp_name, values in reward_comp_lists.items():
-            arr = np.array(values)
-            self.logger.record(f"reward_components/{comp_name}_mean", np.mean(arr))
-            self.logger.record(f"reward_components/{comp_name}_max", np.max(arr))
-
     def _on_rollout_end(self) -> None:
-        """Print env summary table and log episode-level TensorBoard metrics."""
+        """Print env summary table and log TensorBoard metrics."""
         all_stats = self.training_env.env_method("get_latest_stats")
         elapsed = time.time() - self._start_time if self._start_time else 0.0
 
@@ -241,10 +258,20 @@ class TensorboardCallback(BaseCallback):
         if summary:
             print(summary, flush=True)
 
-        # Log episode-level TensorBoard metrics at episode boundaries
+        # Log V3 scalar metrics every rollout (not just at episode boundaries)
+        # so that mid-episode data is always captured in TensorBoard.
+        self._log_v3_scalar_metrics(all_stats)
+
+        # Heavy metrics (histograms, exploration maps, event flags) at episode
+        # boundaries only — use end-of-episode snapshots that survive auto-reset.
         self._rollout_count += 1
         if self._rollouts_per_episode and self._rollout_count % self._rollouts_per_episode == 0:
-            self._log_episode_metrics(all_stats)
+            final_stats = self.training_env.env_method("get_final_episode_stats")
+            if any(s for s in final_stats):
+                self._log_heavy_metrics(final_stats)
+                # Also log V3 scalars from the final snapshot (captures true
+                # end-of-episode values that may have been cleared by reset)
+                self._log_v3_scalar_metrics(final_stats)
 
     def _on_training_end(self):
         if self.writer:

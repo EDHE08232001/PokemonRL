@@ -123,6 +123,7 @@ class RedGymEnv(Env):
         self.map_frame_writer = None
         self.reset_count = 0
         self.all_runs = []
+        self._final_episode_stats = {}  # survives auto-reset for TB logging
 
         # Map IDs for key locations, ordered by game progress
         self.essential_map_locations = {
@@ -316,6 +317,14 @@ class RedGymEnv(Env):
         """Return only the most recent stats dict to save multiprocessing pipe memory."""
         return self.agent_stats[-1] if len(self.agent_stats) > 0 else {}
 
+    def get_final_episode_stats(self):
+        """Return the stats snapshot from the end of the last completed episode.
+
+        This survives SubprocVecEnv's auto-reset, which clears agent_stats.
+        Used by the TensorBoard callback for episode-boundary metrics.
+        """
+        return self._final_episode_stats
+
     def close(self):
         self.pyboy.stop(save=False)
         super().close()
@@ -374,6 +383,10 @@ class RedGymEnv(Env):
                             self.current_event_flags_set[key] = self.event_names[key]
                         else:
                             print(f"could not find key: {key}")
+
+        # Save end-of-episode stats snapshot (survives SubprocVecEnv auto-reset)
+        if step_limit_reached and self.agent_stats:
+            self._final_episode_stats = dict(self.agent_stats[-1])
 
         self.step_count += 1
 
@@ -475,11 +488,12 @@ class RedGymEnv(Env):
         if self.in_battle and battle_type > 0:
             if self.prev_enemy_hp > 0 and enemy_hp == 0:
                 self.enemy_faint_count += 1
-                # Bounded: diminishing after 50 faints
+                # Diminishing returns: full reward up to 50, reduced to 150, then capped
                 if self.enemy_faint_count <= 50:
                     self.total_enemy_faint_reward += 1.0
-                else:
-                    self.total_enemy_faint_reward += 0.2
+                elif self.enemy_faint_count <= 150:
+                    self.total_enemy_faint_reward += 0.1
+                # After 150 faints: no more faint reward (prevents grinding)
 
         # Battle exit detection (battle → overworld)
         if battle_type == 0 and self.in_battle:
@@ -811,11 +825,22 @@ class RedGymEnv(Env):
             0,
         )
 
+    def _get_stuck_penalty(self):
+        """Stuck penalty, suppressed during active NPC dialogue.
+
+        Without this exemption the agent is penalised for standing still
+        while reading text boxes, which conflicts with the semantic-text
+        reward and discourages NPC interaction.
+        """
+        if np.any(self.current_text_hash):
+            return 0.0
+        return self.get_current_coord_count_reward() * -0.5
+
     def get_game_state_reward(self, print_stats=False):
         """
         Compute composite reward dict.
         V3 adds: semantic (text), warp discovery, Oak's Parcel quest,
-        battle progression, and party growth rewards.
+        battle progression, party growth, and map-progress rewards.
         """
         state_scores = {
             "event": self.reward_scale * self.update_max_event_rew() * 4,
@@ -824,7 +849,8 @@ class RedGymEnv(Env):
             "badge": self.reward_scale * self.get_badges() * 25,
             "op_lvl": self.reward_scale * self.update_max_op_level() * 0.2,
             "explore": self.reward_scale * self.explore_weight * len(self.seen_coords) * 0.1,
-            "stuck": self.reward_scale * self.get_current_coord_count_reward() * -0.5,
+            "stuck": self.reward_scale * self._get_stuck_penalty(),
+            "map_progress": self.reward_scale * self.max_map_progress * 2.0,
             "semantic": self.reward_scale * self.semantic_reward,
             "party": self.reward_scale * self.get_party_growth_reward() * 3.0,
             "oak_parcel": self.reward_scale * self.oak_parcel_reward,

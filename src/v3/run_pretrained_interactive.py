@@ -88,10 +88,9 @@ if __name__ == '__main__':
     print('\nloading checkpoint')
     model = RecurrentPPO.load(file_name, env=env, custom_objects={'lr_schedule': 0, 'clip_range': 0})
 
-    # Slow emulation to real-time (1x) so the user can watch the agent play.
-    # The env defaults to 6x when headless=False (optimized for training rollouts),
-    # which is too fast for interactive observation.
-    env.pyboy.set_emulation_speed(1)
+    # set emulation speed and sound for interactive play
+    env.pyboy.set_emulation_speed(3)
+    env.pyboy.sound_enabled = True
 
     obs, info = env.reset()
     # RecurrentPPO requires LSTM states to be tracked across steps

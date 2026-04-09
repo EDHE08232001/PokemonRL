@@ -13,7 +13,6 @@ import json
 import time
 
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.logger import Image
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from einops import rearrange, reduce
@@ -236,12 +235,26 @@ class TensorboardCallback(BaseCallback):
             self.logger.record(f"env_stats_max/{key}", max(distrib))
 
         # Log aggregated exploration map as an image
+        # Use self.writer.add_image() directly for TensorBoard v2 plugin
+        # metadata compatibility (SB3's Image logger writes v1 proto format
+        # without plugin_data, so modern TensorBoard's Images tab can't find them).
         explore_map = np.array(self.training_env.get_attr("explore_map"))
         map_sum = reduce(explore_map, "f h w -> h w", "max")
-        self.logger.record("trajectory/explore_sum", Image(map_sum, "HW"), exclude=("stdout", "log", "json", "csv"))
+        self.writer.add_image(
+            "trajectory/explore_sum",
+            np.expand_dims(map_sum, 0),  # HW -> CHW (single channel)
+            global_step=self.num_timesteps,
+            dataformats="CHW",
+        )
 
         map_row = rearrange(explore_map, "(r f) h w -> (r h) (f w)", r=2)
-        self.logger.record("trajectory/explore_map", Image(map_row, "HW"), exclude=("stdout", "log", "json", "csv"))
+        self.writer.add_image(
+            "trajectory/explore_map",
+            np.expand_dims(map_row, 0),  # HW -> CHW (single channel)
+            global_step=self.num_timesteps,
+            dataformats="CHW",
+        )
+        self.writer.flush()
 
         # Log all event flags that have been set
         list_of_flag_dicts = self.training_env.get_attr("current_event_flags_set")

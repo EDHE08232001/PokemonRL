@@ -190,7 +190,7 @@ class RedGymEnv(Env):
         self.pyboy = PyBoy(
             config["gb_path"],
             window=head,
-            sound_emulated=False,
+            sound_emulated=config.get("sound", False),
         )
 
         if not config["headless"]:

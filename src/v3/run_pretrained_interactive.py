@@ -67,7 +67,7 @@ if __name__ == '__main__':
 
     env_config = {
         'headless': False, 'save_final_state': True, 'early_stop': False,
-        'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'init.state'), 'max_steps': ep_length,
+        'action_freq': 24, 'init_state': str(_PROJECT_ROOT / 'saves' / 'init.state'), 'max_steps': ep_length, 'sound': True,
         'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
         'gb_path': str(_PROJECT_ROOT / 'ROM_INPUT' / 'PokemonRed.gb'), 'debug': False, 'reward_scale': 0.5, 'explore_weight': 0.25
     }
@@ -88,9 +88,8 @@ if __name__ == '__main__':
     print('\nloading checkpoint')
     model = RecurrentPPO.load(file_name, env=env, custom_objects={'lr_schedule': 0, 'clip_range': 0})
 
-    # set emulation speed and sound for interactive play
+    # set emulation speed
     env.pyboy.set_emulation_speed(3)
-    env.pyboy.sound_enabled = True
 
     obs, info = env.reset()
     # RecurrentPPO requires LSTM states to be tracked across steps

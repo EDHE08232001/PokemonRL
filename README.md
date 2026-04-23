@@ -21,9 +21,6 @@ https://github.com/user-attachments/assets/e5623525-7bcf-4d22-b0db-7fb0047ce5bd
   - [ROM Setup](#rom-setup)
   - [Installing Dependencies](#installing-dependencies)
 - [Running the Code](#running-the-code)
-  - [Quick Start (Interactive Menu)](#quick-start-interactive-menu)
-  - [Train V1 Baseline](#train-v1-baseline)
-  - [Train V2 (Recommended)](#train-v2-recommended)
   - [Train V3 (Our Contribution)](#train-v3-our-contribution)
   - [Running on Morningstar HPC (SLURM)](#running-on-morningstar-hpc-slurm)
 - [Verifying the Environment](#verifying-the-environment)
@@ -124,72 +121,6 @@ pip install stable-baselines3 gymnasium torch pyboy PySDL2 pysdl2-dll numpy eino
 
 ## Running the Code
 
-### Quick Start (Interactive Menu)
-
-The simplest way to train or run any version:
-
-```bash
-python main.py
-```
-
-This presents the following menu:
-
-```
-  [1] Train Baseline  (KNN exploration, CnnPolicy)
-  [2] Run Baseline    (play with trained Baseline model)
-
-  [3] Train V2        (coordinate exploration, MultiInputPolicy)
-  [4] Run V2          (play with trained V2 model)
-
-  [5] Train V3        (LSTM + text + graph, RecurrentPPO)
-  [6] Run V3          (play with trained V3 model)
-
-  [c] Check Environment (verify deps, ROM, hardware)
-  [q] Quit
-```
-
----
-
-### Train V1 Baseline
-
-```bash
-pip install .[baseline]
-python src/baseline/run_baseline_parallel_fast.py
-```
-
-**What happens:**
-- Spawns 16 parallel Pokemon Red emulators
-- Trains PPO with `CnnPolicy` and HNSW pixel-KNN exploration
-- Saves checkpoints to `src/baseline/session_<UUID>/`
-- Logs to TensorBoard in the same session directory
-
-**To resume from a checkpoint**, edit `file_name` at the top of `run_baseline_parallel_fast.py` to point to your checkpoint path.
-
----
-
-### Train V2 (Recommended)
-
-```bash
-pip install .
-python src/v2/baseline_fast_v2.py
-```
-
-**What happens:**
-- Spawns 64 parallel Pokemon Red emulators
-- Trains PPO with `MultiInputPolicy` and coordinate-based exploration
-- Saves checkpoints to `src/v2/runs/` every `ep_length // 2` steps
-- Logs to TensorBoard in `src/v2/runs/`
-
-**To resume from a checkpoint:**
-```bash
-echo "runs/poke_26214400_steps" | python src/v2/baseline_fast_v2.py
-```
-
-**To run continuously across multiple episodes:**
-```bash
-bash src/v2/go_forever.sh
-```
-
 ---
 
 ### Train V3 (Our Contribution)
@@ -212,6 +143,9 @@ echo "runs/poke_XXXXXXX_steps" | python src/v3/baseline_fast_v3.py
 ```
 
 **To run multiple episodes back-to-back (auto-resume):**
+
+### This works on SLURM Supported HPC Platforms
+
 ```bash
 # Run 5 episodes sequentially, auto-resuming from latest checkpoint
 bash src/v3/go_v3.sh 5

@@ -291,18 +291,17 @@ Exit code `0` = all checks passed. Exit code `1` = one or more failures.
 All training metrics are logged to TensorBoard automatically.
 
 ```bash
-# V2 training metrics
-tensorboard --logdir src/v2/runs/
 
 # V3 training metrics
 tensorboard --logdir src/v3/runs/
 
-# V1 Baseline metrics
-tensorboard --logdir src/baseline/session_<UUID>/
-
 # Then open in your browser:
 # http://localhost:6006
 ```
+
+or use our Google Colab to view the latest result
+
+[Click to go to Google Colab](https://colab.research.google.com/drive/1CcQqZuCriJ2toSd5E25N2UHvJ78e6231?usp=sharing)
 
 **Key metrics to examine:**
 
@@ -446,21 +445,6 @@ echo "yes" > src/v3/agent_enabled.txt
 # Take manual control
 echo "no" > src/v3/agent_enabled.txt
 # (or simply delete the file)
-```
-
----
-
-## Determinism and Seeds
-
-- Seeds are set via `set_random_seed(seed + rank)` in each environment closure, where `rank` is the environment index (0–63).
-- The base seed defaults to `0` in all training scripts. To change it, modify the `seed` argument in `make_env()`.
-- PyBoy loads a fixed binary `.state` file at the start of each episode, ensuring identical initial game state across all runs.
-- All parallel environments are managed by `SubprocVecEnv` with deterministic process ordering.
-
-To run with a different seed:
-```bash
-# Edit the seed variable in the training script, then run:
-python src/v3/baseline_fast_v3.py
 ```
 
 ---

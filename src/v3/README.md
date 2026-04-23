@@ -4,6 +4,13 @@ V3 is a research extension of the V2 coordinate-based exploration agent. It adds
 
 ---
 
+## Video Demo
+
+
+https://github.com/user-attachments/assets/e5623525-7bcf-4d22-b0db-7fb0047ce5bd
+
+---
+
 ## Architectural Differences from V2
 
 | Feature | V2 | V3 |

@@ -107,6 +107,12 @@ pip install .[windows]
 pip install .[all]
 ```
 
+When running V3 or other vwesion, if the above installation methods do not work, please do manual pip install like below for V3
+
+```
+pip install stable-baselines3 gymnasium torch pyboy PySDL2 pysdl2-dll numpy einops scikit-image scipy matplotlib pandas pillow mediapy tensorboard websockets sb3-contrib networkx
+```
+
 > **Note for Morningstar HPC:** See [Running on Morningstar HPC](#running-on-morningstar-hpc-slurm) below and `v3_setup_morning_star_hpc.md` for the offline wheel installation procedure required behind the cluster firewall.
 
 ---

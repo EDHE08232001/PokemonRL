@@ -35,7 +35,7 @@ final_states/
 screenshots/
 
 # Model checkpoints & weights (large binary files)
-*.zip
+# *.zip
 *.pth
 
 # Save states (large binary emulator snapshots)
@@ -43,7 +43,7 @@ screenshots/
 *.state
 
 # TensorBoard / training run logs
-runs/
+# runs/
 
 # Photoshop / design source files
 *.psd

@@ -121,6 +121,10 @@ pip install stable-baselines3 gymnasium torch pyboy PySDL2 pysdl2-dll numpy eino
 
 ## Running the Code
 
+Currently, we only have trained weights for V3 because it is out original contribution to the Pokemon RL work.
+
+To run V2 or baseline, you can either train from start or find the pre-trained weights from original author's github repo [here](https://github.com/PWhiddy/PokemonRedExperiments)
+
 ---
 
 ### Train V3 (Our Contribution)

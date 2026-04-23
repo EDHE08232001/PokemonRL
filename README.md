@@ -36,7 +36,6 @@ https://github.com/user-attachments/assets/e5623525-7bcf-4d22-b0db-7fb0047ce5bd
   - [V2 Symbolic Coordinate Discovery](#v2-symbolic-coordinate-discovery)
   - [V3 Semantic Reasoning](#v3-semantic-reasoning)
 - [Running a Pre-Trained Model Interactively](#running-a-pre-trained-model-interactively)
-- [Determinism and Seeds](#determinism-and-seeds)
 
 ---
 

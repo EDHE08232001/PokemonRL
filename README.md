@@ -109,7 +109,7 @@ pip install .[windows]
 pip install .[all]
 ```
 
-When running V3 or other vwesion, if the above installation methods do not work, please do manual pip install like below for V3
+When running V3 or other versions, if the above installation methods do not work, please do manual pip install like below for V3
 
 ```
 pip install stable-baselines3 gymnasium torch pyboy PySDL2 pysdl2-dll numpy einops scikit-image scipy matplotlib pandas pillow mediapy tensorboard websockets sb3-contrib networkx

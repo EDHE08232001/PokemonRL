@@ -254,6 +254,12 @@ V3 adds these TensorBoard metrics under `v3/`:
 
 ---
 
+### Viewing the result for the last training run
+
+[Click to Google Colab](https://colab.research.google.com/drive/1CcQqZuCriJ2toSd5E25N2UHvJ78e6231?usp=sharing)
+
+---
+
 ## Training Post-Mortems
 
 ### Performance Regression at 63M–84M Steps (fixed)
